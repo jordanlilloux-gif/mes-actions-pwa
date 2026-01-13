@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Mes Actions</title>
+
+  <!-- PWA / Android -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#16a34a" />
+
+  <!-- iOS "Add to Home Screen" -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Mes Actions" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png" />
+
+  <!-- Favicon -->
+  <link rel="icon" sizes="32x32" href="./icons/favicon-32.png" />
+
+  <style>
+    :root { --green:#16a34a; --bg:#f6f7f9; --fg:#111; --muted:#6b7280; }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial;
+      background:var(--bg); color:var(--fg);
+      padding:16px;
+    }
+    .box{
+      max-width:720px; margin:0 auto; background:#fff;
+      border:1px solid #e5e7eb; border-radius:14px; padding:16px;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      display:inline-block; padding:12px 14px; border-radius:12px;
+      border:1px solid #e5e7eb; text-decoration:none; font-weight:700;
+      background:#fff; color:#111;
+    }
+    .btn-primary{ background:var(--green); color:#fff; border-color:var(--green); }
+    code{ background:#f3f4f6; padding:2px 6px; border-radius:8px; }
+    .muted{ color:var(--muted); font-size:13px; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .kv{ width:100%; border-collapse:collapse; margin-top:10px; }
+    .kv td{ border-top:1px solid #f1f5f9; padding:8px 6px; vertical-align:top; }
+    .kv td:first-child{ width:180px; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="box" id="app">
+    <h2 style="margin:0 0 8px 0">Mes Actions</h2>
+    <p class="muted" style="margin:0 0 12px 0">
+      Démarrage… si rien ne se passe, utilise le bouton ci-dessous.
+    </p>
+
+    <div class="row" style="margin:10px 0 6px 0">
+      <a class="btn btn-primary" id="goBtn" href="#">Ouvrir Mes actions</a>
+      <a class="btn" id="offlineBtn" href="./offline.html">Mode hors-ligne</a>
+    </div>
+
+    <div id="debugArea" style="display:none; margin-top:14px">
+      <p class="muted" style="margin:0 0 8px 0">
+        Mode debug activé (<code>?pwa_dbg=1</code>) — pas de redirection automatique.
+      </p>
+      <table class="kv">
+        <tr><td>Destination</td><td class="mono" id="destCell"></td></tr>
+        <tr><td>URL actuelle</td><td class="mono" id="hereCell"></td></tr>
+        <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
+        <tr><td>Manifeste</td><td class="mono" id="manCell"></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      // 👉 URL Apps Script PROD (ton lien)
+      var WEBAPP_EXEC = "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec";
+
+      // start logique: mode=myactions (la WebApp gère ensuite login/fast-pass sur son propre domaine)
+      function buildDest(){
+        var u = new URL(WEBAPP_EXEC);
+        u.searchParams.set("mode","myactions");
+        // petit marqueur utile (optionnel) si tu veux ajuster l'UI côté Apps Script plus tard
+        u.searchParams.set("src","pwa");
+        return u.toString();
+      }
+
+      function qs(name){
+        try{ return new URL(location.href).searchParams.get(name); }catch(e){ return null; }
+      }
+
+      var dest = buildDest();
+      var dbg = qs("pwa_dbg") === "1";
+
+      var goBtn = document.getElementById("goBtn");
+      goBtn.href = dest;
+
+      // En debug: on n’auto-redirect pas
+      if (dbg){
+        document.getElementById("debugArea").style.display = "block";
+        document.getElementById("destCell").textContent = dest;
+        document.getElementById("hereCell").textContent = location.href;
+        document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
+        document.getElementById("manCell").textContent = "manifest.json chargé via <link rel='manifest'>";
+        return;
+      }
+
+      // Non-debug: redirection immédiate (top-level)
+      try {
+        // replace() évite de polluer l’historique
+        window.location.replace(dest);
+      } catch(e){
+        // fallback: l’utilisateur clique
+      }
+    })();
+  </script>
+
+  <script>
+    // Enregistrer le Service Worker (cache uniquement des assets GitHub Pages)
+    (function(){
+      if (!("serviceWorker" in navigator)) return;
+      window.addEventListener("load", function(){
+        navigator.serviceWorker.register("./sw.js").catch(function(){});
+      });
+    })();
+  </script>
+</body>
+</html>
