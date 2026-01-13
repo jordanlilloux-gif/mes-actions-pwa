@@ -86,8 +86,23 @@
         try{ return new URL(location.href).searchParams.get(name); }catch(e){ return null; }
       }
 
-      var dest = buildDest();
+      // --- Garde-fous (diagnostic) ---
+      var host = location.hostname;
+      var isGitHub = host.endsWith(".github.io");
       var dbg = qs("pwa_dbg") === "1";
+
+      // Si on n'est PAS sur GitHub Pages, on ne redirige jamais
+      if (!isGitHub) {
+        document.getElementById("debugArea").style.display = "block";
+        document.getElementById("destCell").textContent = "(bloqué) pas sur GitHub Pages: " + location.href;
+        document.getElementById("hereCell").textContent = location.href;
+        document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
+        document.getElementById("manCell").textContent = "manifest.json chargé via <link rel='manifest'>";
+        document.querySelector("h2").textContent = "Mes Actions (DEBUG)";
+        return;
+      }
+
+      var dest = buildDest();
       // ⏱ Délai volontaire pour laisser Chrome détecter manifest+SW et proposer l'installation
       // (sinon on est redirigé trop vite vers script.google.com)
       var INSTALL_DELAY_MS = 3000;
@@ -98,6 +113,7 @@
       // En debug: on n’auto-redirect pas
       if (dbg){
         document.getElementById("debugArea").style.display = "block";
+        document.querySelector("h2").textContent = "Mes Actions (DEBUG)";
         document.getElementById("destCell").textContent = dest;
         document.getElementById("hereCell").textContent = location.href;
         document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
