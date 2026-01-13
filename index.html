@@ -73,15 +73,12 @@
 
   <script>
     (function(){
-      // 👉 URL Apps Script PROD (ton lien)
-      var WEBAPP_EXEC = "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec";
-
-      // start logique: mode=myactions (la WebApp gère ensuite login/fast-pass sur son propre domaine)
+      // Au lieu de WEBAPP_EXEC + mode=myactions
+      var ENTRY_URL = "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c"; // ...?mode=entry&audience=...&ek=...
+      
       function buildDest(){
-        var u = new URL(WEBAPP_EXEC);
-        u.searchParams.set("mode","myactions");
-        // petit marqueur utile (optionnel) si tu veux ajuster l'UI côté Apps Script plus tard
-        u.searchParams.set("src","pwa");
+        var u = new URL(ENTRY_URL);
+        u.searchParams.set("src","pwa"); // optionnel
         return u.toString();
       }
 
