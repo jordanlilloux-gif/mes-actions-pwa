@@ -88,6 +88,9 @@
 
       var dest = buildDest();
       var dbg = qs("pwa_dbg") === "1";
+      // ⏱ Délai volontaire pour laisser Chrome détecter manifest+SW et proposer l'installation
+      // (sinon on est redirigé trop vite vers script.google.com)
+      var INSTALL_DELAY_MS = 2000;
 
       var goBtn = document.getElementById("goBtn");
       goBtn.href = dest;
@@ -102,13 +105,15 @@
         return;
       }
 
-      // Non-debug: redirection immédiate (top-level)
-      try {
-        // replace() évite de polluer l’historique
-        window.location.replace(dest);
-      } catch(e){
-        // fallback: l’utilisateur clique
-      }
+      // Non-debug: redirection après délai (top-level)
+      setTimeout(function () {
+        try {
+          // replace() évite de polluer l’historique
+          window.location.replace(dest);
+        } catch(e){
+          // fallback: l’utilisateur clique
+        }
+      }, INSTALL_DELAY_MS);
     })();
   </script>
 
