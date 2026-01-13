@@ -86,6 +86,17 @@
         try{ return new URL(location.href).searchParams.get(name); }catch(e){ return null; }
       }
 
+      function isStandalone(){
+        // Android/Chrome: display-mode
+        // iOS Safari: navigator.standalone
+        try{
+          return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+            || (window.navigator && window.navigator.standalone === true);
+        }catch(e){
+          return false;
+        }
+      }
+
       // --- Garde-fous (diagnostic) ---
       var host = location.hostname;
       var isGitHub = host.endsWith(".github.io");
@@ -103,9 +114,9 @@
       }
 
       var dest = buildDest();
-      // ⏱ Délai volontaire pour laisser Chrome détecter manifest+SW et proposer l'installation
-      // (sinon on est redirigé trop vite vers script.google.com)
-      var INSTALL_DELAY_MS = 3000;
+      // Mode optionnel pour forcer une redirection même hors-standalone
+      // ex: .../mes-actions-pwa/?go=1
+      var forceGo = qs("go") === "1";
 
       var goBtn = document.getElementById("goBtn");
       goBtn.href = dest;
@@ -121,15 +132,15 @@
         return;
       }
 
-      // Non-debug: redirection après délai (top-level)
-      setTimeout(function () {
-        try {
-          // replace() évite de polluer l’historique
+      // ✅ Comportement recommandé pour rendre l'app installable :
+      // - si déjà installée (standalone) -> on redirige automatiquement vers Apps Script
+      // - sinon -> on RESTE sur GitHub Pages (pas de redirection automatique),
+      //            l'utilisateur peut soit installer, soit cliquer "Ouvrir".
+      if (isStandalone() || forceGo){
+        try{
           window.location.replace(dest);
-        } catch(e){
-          // fallback: l’utilisateur clique
-        }
-      }, INSTALL_DELAY_MS);
+        }catch(e){}
+      }
     })();
   </script>
 
