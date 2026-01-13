@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mes Actions (DEBUG)</title>
+
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#16a34a" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Mes Actions" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png" />
+
+  <link rel="icon" sizes="32x32" href="./icons/favicon-32.png" />
+
+  <style>
+    :root { --green:#16a34a; --bg:#f6f7f9; --fg:#111; --muted:#6b7280; }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--fg); padding:16px; }
+    .box{ max-width:720px; margin:0 auto; background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:16px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{ display:inline-block; padding:12px 14px; border-radius:12px; border:1px solid #e5e7eb; text-decoration:none; font-weight:700; background:#fff; color:#111; }
+    .btn-primary{ background:var(--green); color:#fff; border-color:var(--green); }
+    code{ background:#f3f4f6; padding:2px 6px; border-radius:8px; }
+    .muted{ color:var(--muted); font-size:13px; }
+    .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace; }
+    .kv{ width:100%; border-collapse:collapse; margin-top:10px; }
+    .kv td{ border-top:1px solid #f1f5f9; padding:8px 6px; vertical-align:top; }
+    .kv td:first-child{ width:180px; color:var(--muted); }
+  </style>
+</head>
+
+<body>
+  <div class="box">
+    <h2 style="margin:0 0 8px 0">Mes Actions (DEBUG)</h2>
+    <p class="muted" style="margin:0 0 12px 0">
+      Page de debug : <strong>aucune redirection automatique</strong>. Utilise “Ouvrir Mes actions” pour partir vers Apps Script.
+    </p>
+
+    <div class="row" style="margin:10px 0 6px 0">
+      <a class="btn btn-primary" id="goBtn" href="#">Ouvrir Mes actions</a>
+      <a class="btn" href="./offline.html">Mode hors-ligne</a>
+    </div>
+
+    <table class="kv">
+      <tr><td>URL actuelle</td><td class="mono" id="hereCell"></td></tr>
+      <tr><td>Destination</td><td class="mono" id="destCell"></td></tr>
+      <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
+      <tr><td>Manifeste</td><td class="mono">manifest.json via &lt;link rel="manifest"&gt;</td></tr>
+    </table>
+  </div>
+
+  <script>
+    (function(){
+      var ENTRY_URL = "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
+
+      function buildDest(){
+        var u = new URL(ENTRY_URL);
+        u.searchParams.set("src","pwa");
+        return u.toString();
+      }
+
+      var dest = buildDest();
+      document.getElementById("hereCell").textContent = location.href;
+      document.getElementById("destCell").textContent = dest;
+      document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
+
+      var goBtn = document.getElementById("goBtn");
+      goBtn.href = dest;
+    })();
+  </script>
+
+  <script>
+    (function(){
+      if (!("serviceWorker" in navigator)) return;
+      window.addEventListener("load", function(){
+        navigator.serviceWorker.register("./sw.js").catch(function(){});
+      });
+    })();
+  </script>
+</body>
+</html>
