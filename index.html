@@ -73,6 +73,13 @@
       Si le bouton “Installer l’app” n’apparaît pas : menu ⋮ → “Installer l’application”.
     </div>
 
+    <!-- ✅ Nouveau : aide iOS avant installation (Safari uniquement) -->
+    <div id="iosHint" class="muted" style="display:none; margin-top:10px">
+      📱 <strong>iPhone / iPad</strong><br>
+      Pour installer l’app : <strong>Safari → Partager → Ajouter à l’écran d’accueil</strong><br>
+      👉 Laisse <strong>“Ouvrir comme app web”</strong> activé, puis appuie sur <strong>Ajouter</strong>.
+    </div>
+
     <div id="debugArea" style="display:none; margin-top:14px">
       <p class="muted" style="margin:0 0 8px 0">
         Mode debug activé (<code>?pwa_dbg=1</code>) — pas de redirection automatique.
@@ -110,6 +117,17 @@
         }
       }
 
+      // Détection iOS/Safari (pour afficher le hint)
+      function isIOS_(){
+        return /iphone|ipad|ipod/i.test(navigator.userAgent);
+      }
+      function isSafari_(){
+        // Safari iOS : userAgent contient "Safari" et pas "CriOS" (Chrome iOS)
+        var ua = navigator.userAgent || "";
+        var isSafari = /safari/i.test(ua) && !/crios/i.test(ua) && !/fxios/i.test(ua) && !/edgios/i.test(ua);
+        return isSafari;
+      }
+
       // --- Garde-fous (diagnostic) ---
       var host = location.hostname;
       var isGitHub = host.endsWith(".github.io");
@@ -121,6 +139,12 @@
       // Bouton "Ouvrir"
       var goBtn = document.getElementById("goBtn");
       goBtn.href = dest;
+
+      // ✅ Aide iOS : uniquement iOS + Safari + non-standalone
+      if (isIOS_() && isSafari_() && !isStandalone()) {
+        var iosHint = document.getElementById("iosHint");
+        if (iosHint) iosHint.style.display = "block";
+      }
 
       // Si on n'est PAS sur GitHub Pages, on ne redirige jamais
       if (!isGitHub) {
@@ -155,9 +179,11 @@
         var installBtn = document.getElementById("installBtn");
         var offlineBtn = document.getElementById("offlineBtn");
         var installHint = document.getElementById("installHint");
+        var iosHint2 = document.getElementById("iosHint");
         if (installBtn) installBtn.style.display = "none";
         if (offlineBtn) offlineBtn.style.display = "none";
         if (installHint) installHint.style.display = "none";
+        if (iosHint2) iosHint2.style.display = "none";
         var goBtn2 = document.getElementById("goBtn");
         if (goBtn2) goBtn2.style.display = "none";
 
@@ -165,7 +191,7 @@
         var msg = document.getElementById("launchMsg");
         if (msg) msg.textContent = "Ouverture de Mes Actions…";
 
-        // ✅ NOUVEAU: si hors-ligne, ne pas quitter la PWA
+        // Si hors-ligne, ne pas quitter la PWA
         if (navigator.onLine === false && !forceGo) {
           try { window.location.replace("./offline.html"); } catch(e) {}
           return;
@@ -181,7 +207,7 @@
           go();
         };
 
-        // Fallback: si "ready" ne vient pas (cas vu sur certains Android/émulateurs), on redirige quand même.
+        // Fallback: si "ready" ne vient pas, on redirige quand même.
         setTimeout(goOnce, 600);
 
         if ("serviceWorker" in navigator) {
