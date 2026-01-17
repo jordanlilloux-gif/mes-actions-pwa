@@ -20,5 +20,12 @@
     </p>
     <a class="btn" href="./index.html">Réessayer</a>
   </div>
+
+  <script>
+    // Quand la connexion revient, on retente automatiquement
+    window.addEventListener("online", function(){
+      try { window.location.replace("./index.html"); } catch(e) {}
+    });
+  </script>
 </body>
 </html>
