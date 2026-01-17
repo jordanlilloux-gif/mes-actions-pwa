@@ -58,7 +58,7 @@
   <div class="box" id="app">
     <h2 style="margin:0 0 8px 0">Mes Actions</h2>
 
-    <!-- OPTION B: message de transition piloté par JS -->
+    <!-- Message de transition piloté par JS -->
     <p class="muted" id="launchMsg" style="margin:0 0 12px 0">
       Démarrage… si rien ne se passe, utilise le bouton ci-dessous.
     </p>
@@ -151,7 +151,7 @@
       // - sinon -> rester sur GitHub Pages pour préserver l’installabilité
       if (isStandalone() || forceGo){
 
-        // OPTION A: en mode installé, on masque l'UI "site"
+        // Mode installé: masquer l'UI "site"
         var installBtn = document.getElementById("installBtn");
         var offlineBtn = document.getElementById("offlineBtn");
         var installHint = document.getElementById("installHint");
@@ -161,9 +161,15 @@
         var goBtn2 = document.getElementById("goBtn");
         if (goBtn2) goBtn2.style.display = "none";
 
-        // OPTION B: message de transition plus "app-like"
+        // Message de transition plus "app-like"
         var msg = document.getElementById("launchMsg");
         if (msg) msg.textContent = "Ouverture de Mes Actions…";
+
+        // ✅ NOUVEAU: si hors-ligne, ne pas quitter la PWA
+        if (navigator.onLine === false && !forceGo) {
+          try { window.location.replace("./offline.html"); } catch(e) {}
+          return;
+        }
 
         var go = function(){ try{ window.location.replace(dest); }catch(e){} };
 
@@ -204,7 +210,6 @@
       installBtn.addEventListener("click", function(e){
         e.preventDefault();
         if (!deferredPrompt) return;
-
         deferredPrompt.prompt();
         deferredPrompt = null;
         installBtn.style.display = "none";
