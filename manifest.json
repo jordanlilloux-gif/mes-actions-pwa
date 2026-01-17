@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "Mes Actions",
   "short_name": "Mes Actions",
   "description": "Accès rapide à Mes actions (WebApp Google Apps Script).",
