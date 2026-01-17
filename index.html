@@ -45,6 +45,14 @@
     .kv td{ border-top:1px solid #f1f5f9; padding:8px 6px; vertical-align:top; }
     .kv td:first-child{ width:180px; color:var(--muted); }
   </style>
+
+  <script>
+    // Enregistrer le Service Worker le plus tôt possible (pas sur "load")
+    (function(){
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.register("./sw.js").catch(function(){});
+    })();
+  </script>
 </head>
 <body>
   <div class="box" id="app">
@@ -55,7 +63,12 @@
 
     <div class="row" style="margin:10px 0 6px 0">
       <a class="btn btn-primary" id="goBtn" href="#">Ouvrir Mes actions</a>
+      <a class="btn" id="installBtn" href="#" style="display:none">Installer l’app</a>
       <a class="btn" id="offlineBtn" href="./offline.html">Mode hors-ligne</a>
+    </div>
+
+    <div id="installHint" class="muted" style="display:none; margin-top:6px">
+      Si le bouton “Installer l’app” n’apparaît pas : menu ⋮ → “Installer l’application”.
     </div>
 
     <div id="debugArea" style="display:none; margin-top:14px">
@@ -67,18 +80,18 @@
         <tr><td>URL actuelle</td><td class="mono" id="hereCell"></td></tr>
         <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
         <tr><td>Manifeste</td><td class="mono" id="manCell"></td></tr>
+        <tr><td>Standalone</td><td class="mono" id="standCell"></td></tr>
       </table>
     </div>
   </div>
 
   <script>
     (function(){
-      // Au lieu de WEBAPP_EXEC + mode=myactions
-      var ENTRY_URL = "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c"; // ...?mode=entry&audience=...&ek=...
-      
+      var ENTRY_URL = "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
+
       function buildDest(){
         var u = new URL(ENTRY_URL);
-        u.searchParams.set("src","pwa"); // optionnel
+        u.searchParams.set("from","pwa");
         return u.toString();
       }
 
@@ -87,8 +100,6 @@
       }
 
       function isStandalone(){
-        // Android/Chrome: display-mode
-        // iOS Safari: navigator.standalone
         try{
           return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
             || (window.navigator && window.navigator.standalone === true);
@@ -102,6 +113,13 @@
       var isGitHub = host.endsWith(".github.io");
       var dbg = qs("pwa_dbg") === "1";
 
+      var dest = buildDest();
+      var forceGo = qs("go") === "1"; // ex: .../?go=1 pour forcer
+
+      // Bouton "Ouvrir"
+      var goBtn = document.getElementById("goBtn");
+      goBtn.href = dest;
+
       // Si on n'est PAS sur GitHub Pages, on ne redirige jamais
       if (!isGitHub) {
         document.getElementById("debugArea").style.display = "block";
@@ -109,17 +127,10 @@
         document.getElementById("hereCell").textContent = location.href;
         document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
         document.getElementById("manCell").textContent = "manifest.json chargé via <link rel='manifest'>";
+        document.getElementById("standCell").textContent = isStandalone() ? "oui" : "non";
         document.querySelector("h2").textContent = "Mes Actions (DEBUG)";
         return;
       }
-
-      var dest = buildDest();
-      // Mode optionnel pour forcer une redirection même hors-standalone
-      // ex: .../mes-actions-pwa/?go=1
-      var forceGo = qs("go") === "1";
-
-      var goBtn = document.getElementById("goBtn");
-      goBtn.href = dest;
 
       // En debug: on n’auto-redirect pas
       if (dbg){
@@ -129,30 +140,53 @@
         document.getElementById("hereCell").textContent = location.href;
         document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
         document.getElementById("manCell").textContent = "manifest.json chargé via <link rel='manifest'>";
+        document.getElementById("standCell").textContent = isStandalone() ? "oui" : "non";
         return;
       }
 
-      // ✅ Comportement recommandé pour rendre l'app installable :
-      // - si déjà installée (standalone) -> on redirige automatiquement vers Apps Script
-      // - sinon -> on RESTE sur GitHub Pages (pas de redirection automatique),
-      //            l'utilisateur peut soit installer, soit cliquer "Ouvrir".
+      // ✅ Comportement recommandé :
+      // - si déjà installée (standalone) -> redirection auto vers Apps Script
+      // - sinon -> rester sur GitHub Pages pour préserver l’installabilité
       if (isStandalone() || forceGo){
-        try{
-          window.location.replace(dest);
-        }catch(e){}
+        var go = function(){ try{ window.location.replace(dest); }catch(e){} };
+
+        if ("serviceWorker" in navigator) {
+          // Laisse une chance au SW d’être "ready" (surtout au tout premier lancement après install)
+          navigator.serviceWorker.ready.then(function(){ go(); }).catch(function(){ go(); });
+        } else {
+          go();
+        }
       }
     })();
   </script>
 
   <script>
-    // Enregistrer le Service Worker (cache uniquement des assets GitHub Pages)
+    // Bouton "Installer l’app" (affiché seulement si Chrome déclenche beforeinstallprompt)
     (function(){
-      if (!("serviceWorker" in navigator)) return;
-      window.addEventListener("load", function(){
-        navigator.serviceWorker.register("./sw.js").then(function(reg){
-          // utile pour confirmer que le SW est bien enregistré avant la redirection
-          console.log("SW registered", reg.scope);
-        }).catch(function(){});
+      var deferredPrompt = null;
+      var installBtn = document.getElementById("installBtn");
+      var installHint = document.getElementById("installHint");
+
+      window.addEventListener("beforeinstallprompt", function(e){
+        e.preventDefault();
+        deferredPrompt = e;
+        installBtn.style.display = "inline-block";
+        installHint.style.display = "block";
+      });
+
+      installBtn.addEventListener("click", function(e){
+        e.preventDefault();
+        if (!deferredPrompt) return;
+
+        deferredPrompt.prompt();
+        // On ne dépend pas de userChoice (selon versions, peut varier)
+        deferredPrompt = null;
+        installBtn.style.display = "none";
+      });
+
+      window.addEventListener("appinstalled", function(){
+        deferredPrompt = null;
+        installBtn.style.display = "none";
       });
     })();
   </script>
