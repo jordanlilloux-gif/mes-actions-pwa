@@ -1,11 +1,12 @@
 /* sw.js — Mes Actions PWA shell (GitHub Pages)
    Cache uniquement les fichiers du repo (pas script.google.com).
 */
-const SW_VERSION = "v1.0.0";
+const SW_VERSION = "v1.0.1";
 const CACHE_NAME = `mes-actions-shell-${SW_VERSION}`;
 
 const ASSETS = [
   "./",
+  "./?from=pwa",
   "./index.html",
   "./manifest.json",
   "./offline.html",
