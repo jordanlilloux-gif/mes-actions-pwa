@@ -57,7 +57,9 @@
 <body>
   <div class="box" id="app">
     <h2 style="margin:0 0 8px 0">Mes Actions</h2>
-    <p class="muted" style="margin:0 0 12px 0">
+
+    <!-- OPTION B: message de transition piloté par JS -->
+    <p class="muted" id="launchMsg" style="margin:0 0 12px 0">
       Démarrage… si rien ne se passe, utilise le bouton ci-dessous.
     </p>
 
@@ -148,6 +150,19 @@
       // - si déjà installée (standalone) -> redirection auto vers Apps Script
       // - sinon -> rester sur GitHub Pages pour préserver l’installabilité
       if (isStandalone() || forceGo){
+
+        // OPTION A: en mode installé, on masque l'UI "site"
+        var installBtn = document.getElementById("installBtn");
+        var offlineBtn = document.getElementById("offlineBtn");
+        var installHint = document.getElementById("installHint");
+        if (installBtn) installBtn.style.display = "none";
+        if (offlineBtn) offlineBtn.style.display = "none";
+        if (installHint) installHint.style.display = "none";
+
+        // OPTION B: message de transition plus "app-like"
+        var msg = document.getElementById("launchMsg");
+        if (msg) msg.textContent = "Ouverture de Mes Actions…";
+
         var go = function(){ try{ window.location.replace(dest); }catch(e){} };
 
         if ("serviceWorker" in navigator) {
@@ -179,7 +194,6 @@
         if (!deferredPrompt) return;
 
         deferredPrompt.prompt();
-        // On ne dépend pas de userChoice (selon versions, peut varier)
         deferredPrompt = null;
         installBtn.style.display = "none";
       });
