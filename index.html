@@ -158,6 +158,8 @@
         if (installBtn) installBtn.style.display = "none";
         if (offlineBtn) offlineBtn.style.display = "none";
         if (installHint) installHint.style.display = "none";
+        var goBtn2 = document.getElementById("goBtn");
+        if (goBtn2) goBtn2.style.display = "none";
 
         // OPTION B: message de transition plus "app-like"
         var msg = document.getElementById("launchMsg");
@@ -165,11 +167,21 @@
 
         var go = function(){ try{ window.location.replace(dest); }catch(e){} };
 
-        if ("serviceWorker" in navigator) {
-          // Laisse une chance au SW d’être "ready" (surtout au tout premier lancement après install)
-          navigator.serviceWorker.ready.then(function(){ go(); }).catch(function(){ go(); });
-        } else {
+        // Redirection robuste: on tente serviceWorker.ready, mais on ne bloque jamais.
+        var already = false;
+        var goOnce = function(){
+          if (already) return;
+          already = true;
           go();
+        };
+
+        // Fallback: si "ready" ne vient pas (cas vu sur certains Android/émulateurs), on redirige quand même.
+        setTimeout(goOnce, 600);
+
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.ready.then(goOnce).catch(goOnce);
+        } else {
+          goOnce();
         }
       }
     })();
