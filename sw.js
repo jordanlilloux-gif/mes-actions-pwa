@@ -1,11 +1,6 @@
-/* sw.js — Mes Actions PWA shell (GitHub Pages) — SAFE
-   - Cache uniquement des assets statiques du repo
-   - Ne cache JAMAIS index.html (évite pages blanches "fantômes")
-   - N'intercepte PAS script.google.com (origine différente)
-   - Offline uniquement pour la navigation (pages)
-*/
+/* sw.js — Mes Actions PWA shell (GitHub Pages) — BULLETPROOF */
 
-const SW_VERSION = "v1.0.5";
+const SW_VERSION = "v1.0.6";
 const CACHE_NAME = `mes-actions-shell-${SW_VERSION}`;
 
 const ASSETS = [
@@ -14,19 +9,32 @@ const ASSETS = [
   "./register-device.js",
 
   "./icons/icon-512.png",
+  "./icons/icon-182.png",
   "./icons/maskable-192.png",
   "./icons/maskable-512.png",
   "./icons/apple-touch-icon-180.png",
-  "./icons/favicon-32.png",
-  "./icons/icon-182.png"
+  "./icons/favicon-32.png"
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+
+    for (const url of ASSETS) {
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) {
+          console.error("[SW] Asset failed:", url, res.status);
+          continue; // on n'annule PAS l'installation
+        }
+        await cache.put(url, res.clone());
+      } catch (err) {
+        console.error("[SW] Fetch error:", url, err);
+      }
+    }
+
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", (event) => {
@@ -34,8 +42,8 @@ self.addEventListener("activate", (event) => {
     const keys = await caches.keys();
     await Promise.all(
       keys
-        .filter((k) => k.startsWith("mes-actions-shell-") && k !== CACHE_NAME)
-        .map((k) => caches.delete(k))
+        .filter(k => k.startsWith("mes-actions-shell-") && k !== CACHE_NAME)
+        .map(k => caches.delete(k))
     );
     await self.clients.claim();
   })());
@@ -45,33 +53,19 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Ne pas intercepter hors de l'origine GitHub Pages
+  // Ne jamais intercepter hors GitHub Pages
   if (url.origin !== self.location.origin) return;
 
-  // NAVIGATION: network-first + fallback offline
+  // Navigation : network-first + offline fallback
   if (req.mode === "navigate") {
-    event.respondWith((async () => {
-      try {
-        return await fetch(req);
-      } catch (e) {
-        return await caches.match("./offline.html");
-      }
-    })());
+    event.respondWith(
+      fetch(req).catch(() => caches.match("./offline.html"))
+    );
     return;
   }
 
-  // ASSETS: cache-first (sans fallback HTML pour JS/CSS)
-  event.respondWith((async () => {
-    const cached = await caches.match(req);
-    if (cached) return cached;
-
-    const fresh = await fetch(req);
-
-    if (req.method === "GET") {
-      caches.open(CACHE_NAME).then((cache) => {
-        cache.put(req, fresh.clone()).catch(() => {});
-      });
-    }
-    return fresh;
-  })());
+  // Assets : cache-first
+  event.respondWith(
+    caches.match(req).then(cached => cached || fetch(req))
+  );
 });
