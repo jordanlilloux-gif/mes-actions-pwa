@@ -1,73 +1,251 @@
-<script>
-/**
- * Auto-register (push) device in Google Sheet via GAS:
- *   .../exec?mode=registerdevice&me=...&sig=...&deviceId=...&token=...&platform=...&appVersion=...&ua=...
- *
- * Prérequis :
- * - La WebApp "Mes actions" doit avoir stocké dans localStorage :
- *   acr.email, acr.sig (et idéalement acr.exec)
- */
-(function(){
-  function get(k){ try { return localStorage.getItem(k) || ""; } catch(e){ return ""; } }
-  function set(k,v){ try { localStorage.setItem(k, v); } catch(e){} }
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  // Throttle : on évite d’appeler à chaque ouverture (ex: toutes les 6h max)
-  var now = Date.now();
-  var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
-  if (last && (now - last) < 6 * 60 * 60 * 1000) return;
+  <title>Mes Actions</title>
 
-  var me  = (get("acr.email") || "").trim().toLowerCase();
-  var sig = (get("acr.sig") || "").trim();
+  <!-- PWA / Android -->
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#16a34a" />
 
-  // Exec URL (idéalement injecté par la WebApp). Fallback: dérive de ENTRY_URL.
-  var exec = (get("acr.exec") || "").trim();
-  if (!exec) {
-    try {
-      // ENTRY_URL existe dans ce fichier (script plus haut). On peut en déduire /exec sans paramètres.
-      var u = new URL(ENTRY_URL);
-      exec = u.origin + u.pathname; // .../exec
-    } catch(e) {}
-  }
+  <!-- iOS "Add to Home Screen" -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Mes Actions" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon-180.png" />
 
-  // Sans identité signée, on ne fait rien.
-  if (!me || !sig || !exec) return;
+  <!-- Favicon -->
+  <link rel="icon" sizes="32x32" href="./icons/favicon-32.png" />
 
-  // deviceId stable (différent du deviceId “auth” si tu veux les séparer)
-  var deviceId = (get("acr.pushDeviceId") || "").trim();
-  if (!deviceId) {
-    deviceId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
-             : ("dev-" + Date.now() + "-" + Math.random().toString(16).slice(2));
-    set("acr.pushDeviceId", deviceId);
-  }
+  <style>
+    :root { --green:#16a34a; --bg:#f6f7f9; --fg:#111; --muted:#6b7280; }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0; font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial;
+      background:var(--bg); color:var(--fg);
+      padding:16px;
+    }
+    .box{
+      max-width:720px; margin:0 auto; background:#fff;
+      border:1px solid #e5e7eb; border-radius:14px; padding:16px;
+    }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .btn{
+      display:inline-block; padding:12px 14px; border-radius:12px;
+      border:1px solid #e5e7eb; text-decoration:none; font-weight:700;
+      background:#fff; color:#111;
+    }
+    .btn-primary{ background:var(--green); color:#fff; border-color:var(--green); }
+    code{ background:#f3f4f6; padding:2px 6px; border-radius:8px; }
+    .muted{ color:var(--muted); font-size:13px; }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .kv{ width:100%; border-collapse:collapse; margin-top:10px; }
+    .kv td{ border-top:1px solid #f1f5f9; padding:8px 6px; vertical-align:top; }
+    .kv td:first-child{ width:180px; color:var(--muted); }
+  </style>
 
-  // Platform simple
-  var ua = navigator.userAgent || "";
-  var platform =
-      /iphone|ipad|ipod/i.test(ua) ? "ios" :
-      /android/i.test(ua) ? "android" :
-      "desktop";
+  <script>
+    // Enregistrer le Service Worker le plus tôt possible (pas sur "load")
+    (function(){
+      if (!("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.register("./sw.js").catch(function(){});
+    })();
+  </script>
+</head>
+<body>
+  <div class="box" id="app">
+    <h2 style="margin:0 0 8px 0">Mes Actions</h2>
 
-  // Token placeholder pour l’instant (on mettra le vrai token FCM plus tard)
-  var token = "pending";
+    <!-- Message de transition piloté par JS -->
+    <p class="muted" id="launchMsg" style="margin:0 0 12px 0">
+      Démarrage… si rien ne se passe, utilise le bouton ci-dessous.
+    </p>
 
-  // Version PWA (alignée sur ton SW_VERSION v1.0.3)
-  var appVersion = "1.0.3";
+    <div class="row" style="margin:10px 0 6px 0">
+      <a class="btn btn-primary" id="goBtn" href="#">Ouvrir Mes actions</a>
+      <a class="btn" id="installBtn" href="#" style="display:none">Installer l’app</a>
+      <a class="btn" id="offlineBtn" href="./offline.html">Mode hors-ligne</a>
+    </div>
 
-  var url =
-      exec
-    + "?mode=registerdevice"
-    + "&me=" + encodeURIComponent(me)
-    + "&sig=" + encodeURIComponent(sig)
-    + "&deviceId=" + encodeURIComponent(deviceId)
-    + "&token=" + encodeURIComponent(token)
-    + "&platform=" + encodeURIComponent(platform)
-    + "&appVersion=" + encodeURIComponent(appVersion)
-    + "&ua=" + encodeURIComponent(ua.slice(0,180))
-    + "&ts=" + now;
+    <div id="installHint" class="muted" style="display:none; margin-top:6px">
+      Si le bouton “Installer l’app” n’apparaît pas : menu ⋮ → “Installer l’application”.
+    </div>
 
-  try {
-    (new Image()).src = url;
-    set("acr.push.lastRegisterAt", String(now));
-  } catch(e) {}
-})();
-</script>
+    <!-- ✅ Nouveau : aide iOS avant installation (Safari uniquement) -->
+    <div id="iosHint" class="muted" style="display:none; margin-top:10px">
+      📱 <strong>iPhone / iPad</strong><br>
+      Pour installer l’app : <strong>Safari → Partager → Ajouter à l’écran d’accueil</strong><br>
+      👉 Laisse <strong>“Ouvrir comme app web”</strong> activé, puis appuie sur <strong>Ajouter</strong>.
+    </div>
+
+    <div id="debugArea" style="display:none; margin-top:14px">
+      <p class="muted" style="margin:0 0 8px 0">
+        Mode debug activé (<code>?pwa_dbg=1</code>) — pas de redirection automatique.
+      </p>
+      <table class="kv">
+        <tr><td>Destination</td><td class="mono" id="destCell"></td></tr>
+        <tr><td>URL actuelle</td><td class="mono" id="hereCell"></td></tr>
+        <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
+        <tr><td>Manifeste</td><td class="mono" id="manCell"></td></tr>
+        <tr><td>Standalone</td><td class="mono" id="standCell"></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var ENTRY_URL = "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
+
+      function buildDest(){
+        var u = new URL(ENTRY_URL);
+        u.searchParams.set("from","pwa");
+        return u.toString();
+      }
+
+      function qs(name){
+        try{ return new URL(location.href).searchParams.get(name); }catch(e){ return null; }
+      }
+
+      function isStandalone(){
+        try{
+          return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
+            || (window.navigator && window.navigator.standalone === true);
+        }catch(e){
+          return false;
+        }
+      }
+
+      // Détection iOS/Safari (pour afficher le hint)
+      function isIOS_(){
+        return /iphone|ipad|ipod/i.test(navigator.userAgent);
+      }
+      function isSafari_(){
+        // Safari iOS : userAgent contient "Safari" et pas "CriOS" (Chrome iOS)
+        var ua = navigator.userAgent || "";
+        var isSafari = /safari/i.test(ua) && !/crios/i.test(ua) && !/fxios/i.test(ua) && !/edgios/i.test(ua);
+        return isSafari;
+      }
+
+      // --- Garde-fous (diagnostic) ---
+      var host = location.hostname;
+      var isGitHub = host.endsWith(".github.io");
+      var dbg = qs("pwa_dbg") === "1";
+
+      var dest = buildDest();
+      var forceGo = qs("go") === "1"; // ex: .../?go=1 pour forcer
+
+      // Bouton "Ouvrir"
+      var goBtn = document.getElementById("goBtn");
+      goBtn.href = dest;
+
+      // ✅ Aide iOS : uniquement iOS + Safari + non-standalone
+      if (isIOS_() && isSafari_() && !isStandalone()) {
+        var iosHint = document.getElementById("iosHint");
+        if (iosHint) iosHint.style.display = "block";
+      }
+
+      // Si on n'est PAS sur GitHub Pages, on ne redirige jamais
+      if (!isGitHub) {
+        document.getElementById("debugArea").style.display = "block";
+        document.getElementById("destCell").textContent = "(bloqué) pas sur GitHub Pages: " + location.href;
+        document.getElementById("hereCell").textContent = location.href;
+        document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
+        document.getElementById("manCell").textContent = "manifest.json chargé via <link rel='manifest'>";
+        document.getElementById("standCell").textContent = isStandalone() ? "oui" : "non";
+        document.querySelector("h2").textContent = "Mes Actions (DEBUG)";
+        return;
+      }
+
+      // En debug: on n’auto-redirect pas
+      if (dbg){
+        document.getElementById("debugArea").style.display = "block";
+        document.querySelector("h2").textContent = "Mes Actions (DEBUG)";
+        document.getElementById("destCell").textContent = dest;
+        document.getElementById("hereCell").textContent = location.href;
+        document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
+        document.getElementById("manCell").textContent = "manifest.json chargé via <link rel='manifest'>";
+        document.getElementById("standCell").textContent = isStandalone() ? "oui" : "non";
+        return;
+      }
+
+      // ✅ Comportement recommandé :
+      // - si déjà installée (standalone) -> redirection auto vers Apps Script
+      // - sinon -> rester sur GitHub Pages pour préserver l’installabilité
+      if (isStandalone() || forceGo){
+
+        // Mode installé: masquer l'UI "site"
+        var installBtn = document.getElementById("installBtn");
+        var offlineBtn = document.getElementById("offlineBtn");
+        var installHint = document.getElementById("installHint");
+        var iosHint2 = document.getElementById("iosHint");
+        if (installBtn) installBtn.style.display = "none";
+        if (offlineBtn) offlineBtn.style.display = "none";
+        if (installHint) installHint.style.display = "none";
+        if (iosHint2) iosHint2.style.display = "none";
+        var goBtn2 = document.getElementById("goBtn");
+        if (goBtn2) goBtn2.style.display = "none";
+
+        // Message de transition plus "app-like"
+        var msg = document.getElementById("launchMsg");
+        if (msg) msg.textContent = "Ouverture de Mes Actions…";
+
+        // Si hors-ligne, ne pas quitter la PWA
+        if (navigator.onLine === false && !forceGo) {
+          try { window.location.replace("./offline.html"); } catch(e) {}
+          return;
+        }
+
+        var go = function(){ try{ window.location.replace(dest); }catch(e){} };
+
+        // Redirection robuste: on tente serviceWorker.ready, mais on ne bloque jamais.
+        var already = false;
+        var goOnce = function(){
+          if (already) return;
+          already = true;
+          go();
+        };
+
+        // Fallback: si "ready" ne vient pas, on redirige quand même.
+        setTimeout(goOnce, 600);
+
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.ready.then(goOnce).catch(goOnce);
+        } else {
+          goOnce();
+        }
+      }
+    })();
+  </script>
+
+  <script>
+    // Bouton "Installer l’app" (affiché seulement si Chrome déclenche beforeinstallprompt)
+    (function(){
+      var deferredPrompt = null;
+      var installBtn = document.getElementById("installBtn");
+      var installHint = document.getElementById("installHint");
+
+      window.addEventListener("beforeinstallprompt", function(e){
+        e.preventDefault();
+        deferredPrompt = e;
+        installBtn.style.display = "inline-block";
+        installHint.style.display = "block";
+      });
+
+      installBtn.addEventListener("click", function(e){
+        e.preventDefault();
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt = null;
+        installBtn.style.display = "none";
+      });
+
+      window.addEventListener("appinstalled", function(){
+        deferredPrompt = null;
+        installBtn.style.display = "none";
+      });
+    })();
+  </script>
+</body>
+</html>
