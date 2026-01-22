@@ -1,6 +1,6 @@
 /* sw.js — Mes Actions PWA shell (GitHub Pages) — BULLETPROOF */
 
-const SW_VERSION = "v1.0.6";
+const SW_VERSION = "v1.0.7";
 const CACHE_NAME = `mes-actions-shell-${SW_VERSION}`;
 
 const ASSETS = [
@@ -9,7 +9,6 @@ const ASSETS = [
   "./register-device.js",
 
   "./icons/icon-512.png",
-  "./icons/icon-182.png",
   "./icons/maskable-192.png",
   "./icons/maskable-512.png",
   "./icons/apple-touch-icon-180.png",
