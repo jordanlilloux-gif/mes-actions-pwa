@@ -12,12 +12,15 @@ const ASSETS = [
   "./manifest.json",
   "./offline.html",
   "./register-device.js",
-  "./icons/icon-192.png",
+
   "./icons/icon-512.png",
   "./icons/maskable-192.png",
   "./icons/maskable-512.png",
   "./icons/apple-touch-icon-180.png",
-  "./icons/favicon-32.png"
+  "./icons/favicon-32.png",
+
+  // Optionnel (présent dans ton repo)
+  "./icons/icon-182.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -51,7 +54,6 @@ self.addEventListener("fetch", (event) => {
   if (req.mode === "navigate") {
     event.respondWith((async () => {
       try {
-        // On ne met pas en cache index.html ici : on laisse le réseau donner la vérité.
         return await fetch(req);
       } catch (e) {
         return await caches.match("./offline.html");
@@ -60,15 +62,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // ASSETS: cache-first (mais pas de fallback HTML pour JS/CSS)
+  // ASSETS: cache-first (sans fallback HTML pour JS/CSS)
   event.respondWith((async () => {
     const cached = await caches.match(req);
     if (cached) return cached;
 
-    // Si pas en cache, tente réseau
     const fresh = await fetch(req);
 
-    // Met en cache uniquement les requêtes GET "propres"
     if (req.method === "GET") {
       caches.open(CACHE_NAME).then((cache) => {
         cache.put(req, fresh.clone()).catch(() => {});
