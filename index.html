@@ -23,7 +23,7 @@
     :root { --green:#16a34a; --bg:#f6f7f9; --fg:#111; --muted:#6b7280; }
     *{ box-sizing:border-box; }
     body{
-      margin:0; font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial;
+      margin:0; font-family:-apple-system,system-ui,Segoe UI,Roboto,Arial;
       background:var(--bg); color:var(--fg);
       padding:16px;
     }
@@ -38,214 +38,102 @@
       background:#fff; color:#111;
     }
     .btn-primary{ background:var(--green); color:#fff; border-color:var(--green); }
-    code{ background:#f3f4f6; padding:2px 6px; border-radius:8px; }
     .muted{ color:var(--muted); font-size:13px; }
-    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
     .kv{ width:100%; border-collapse:collapse; margin-top:10px; }
     .kv td{ border-top:1px solid #f1f5f9; padding:8px 6px; vertical-align:top; }
     .kv td:first-child{ width:180px; color:var(--muted); }
   </style>
-
-  <script>
-    // Enregistrer le Service Worker le plus tôt possible (pas sur "load")
-    (function(){
-      if (!("serviceWorker" in navigator)) return;
-      navigator.serviceWorker.register("./sw.js").catch(function(){});
-    })();
-  </script>
 </head>
-<body>
-  <div class="box" id="app">
-    <h2 style="margin:0 0 8px 0">Mes Actions</h2>
 
-    <!-- Message de transition piloté par JS -->
-    <p class="muted" id="launchMsg" style="margin:0 0 12px 0">
+<body>
+  <div class="box">
+    <h2 id="title">Mes Actions</h2>
+
+    <p class="muted">
       Démarrage… si rien ne se passe, utilise le bouton ci-dessous.
     </p>
 
     <div class="row" style="margin:10px 0 6px 0">
       <a class="btn btn-primary" id="goBtn" href="#">Ouvrir Mes actions</a>
-      <a class="btn" id="installBtn" href="#" style="display:none">Installer l’app</a>
-      <a class="btn" id="offlineBtn" href="./offline.html">Mode hors-ligne</a>
+      <a class="btn" href="./offline.html">Mode hors-ligne</a>
     </div>
 
-    <div id="installHint" class="muted" style="display:none; margin-top:6px">
-      Si le bouton “Installer l’app” n’apparaît pas : menu ⋮ → “Installer l’application”.
-    </div>
-
-    <!-- ✅ Nouveau : aide iOS avant installation (Safari uniquement) -->
-    <div id="iosHint" class="muted" style="display:none; margin-top:10px">
-      📱 <strong>iPhone / iPad</strong><br>
-      Pour installer l’app : <strong>Safari → Partager → Ajouter à l’écran d’accueil</strong><br>
-      👉 Laisse <strong>“Ouvrir comme app web”</strong> activé, puis appuie sur <strong>Ajouter</strong>.
-    </div>
-
+    <!-- Zone debug -->
     <div id="debugArea" style="display:none; margin-top:14px">
-      <p class="muted" style="margin:0 0 8px 0">
+      <p class="muted">
         Mode debug activé (<code>?pwa_dbg=1</code>) — pas de redirection automatique.
       </p>
       <table class="kv">
         <tr><td>Destination</td><td class="mono" id="destCell"></td></tr>
         <tr><td>URL actuelle</td><td class="mono" id="hereCell"></td></tr>
-        <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
-        <tr><td>Manifeste</td><td class="mono" id="manCell"></td></tr>
         <tr><td>Standalone</td><td class="mono" id="standCell"></td></tr>
+        <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
+        <tr><td>Manifest</td><td class="mono" id="manCell"></td></tr>
       </table>
     </div>
   </div>
 
   <script>
+    // === CONFIGURATION ===
+    const ENTRY_URL =
+      "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec"
+      + "?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
+
+    // === Helpers ===
+    function qs(name){
+      try { return new URL(location.href).searchParams.get(name); }
+      catch(e){ return null; }
+    }
+
+    function isStandaloneMode(){
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+      if ("standalone" in navigator && navigator.standalone) return true; // iOS
+      return false;
+    }
+
+    function go(url){
+      try { location.replace(url); }
+      catch(e){ location.href = url; }
+    }
+
+    // === Init ===
     (function(){
-      var ENTRY_URL = "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
+      const dbg = qs("pwa_dbg") === "1";
+      const standalone = isStandaloneMode();
+      const dest = ENTRY_URL + "&src=pwa";
 
-      function buildDest(){
-        var u = new URL(ENTRY_URL);
-        u.searchParams.set("from","pwa");
-        return u.toString();
-      }
+      document.getElementById("goBtn").href = dest;
 
-      function qs(name){
-        try{ return new URL(location.href).searchParams.get(name); }catch(e){ return null; }
-      }
-
-      function isStandalone(){
-        try{
-          return (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches)
-            || (window.navigator && window.navigator.standalone === true);
-        }catch(e){
-          return false;
-        }
-      }
-
-      // Détection iOS/Safari (pour afficher le hint)
-      function isIOS_(){
-        return /iphone|ipad|ipod/i.test(navigator.userAgent);
-      }
-      function isSafari_(){
-        // Safari iOS : userAgent contient "Safari" et pas "CriOS" (Chrome iOS)
-        var ua = navigator.userAgent || "";
-        var isSafari = /safari/i.test(ua) && !/crios/i.test(ua) && !/fxios/i.test(ua) && !/edgios/i.test(ua);
-        return isSafari;
-      }
-
-      // --- Garde-fous (diagnostic) ---
-      var host = location.hostname;
-      var isGitHub = host.endsWith(".github.io");
-      var dbg = qs("pwa_dbg") === "1";
-
-      var dest = buildDest();
-      var forceGo = qs("go") === "1"; // ex: .../?go=1 pour forcer
-
-      // Bouton "Ouvrir"
-      var goBtn = document.getElementById("goBtn");
-      goBtn.href = dest;
-
-      // ✅ Aide iOS : uniquement iOS + Safari + non-standalone
-      if (isIOS_() && isSafari_() && !isStandalone()) {
-        var iosHint = document.getElementById("iosHint");
-        if (iosHint) iosHint.style.display = "block";
-      }
-
-      // Si on n'est PAS sur GitHub Pages, on ne redirige jamais
-      if (!isGitHub) {
-        document.getElementById("debugArea").style.display = "block";
-        document.getElementById("destCell").textContent = "(bloqué) pas sur GitHub Pages: " + location.href;
-        document.getElementById("hereCell").textContent = location.href;
-        document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
-        document.getElementById("manCell").textContent = "manifest.json chargé via <link rel='manifest'>";
-        document.getElementById("standCell").textContent = isStandalone() ? "oui" : "non";
-        document.querySelector("h2").textContent = "Mes Actions (DEBUG)";
-        return;
-      }
-
-      // En debug: on n’auto-redirect pas
       if (dbg){
         document.getElementById("debugArea").style.display = "block";
-        document.querySelector("h2").textContent = "Mes Actions (DEBUG)";
+        document.getElementById("title").textContent = "Mes Actions (DEBUG)";
         document.getElementById("destCell").textContent = dest;
         document.getElementById("hereCell").textContent = location.href;
+        document.getElementById("standCell").textContent = standalone ? "oui" : "non";
         document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
-        document.getElementById("manCell").textContent = "manifest.json chargé via <link rel='manifest'>";
-        document.getElementById("standCell").textContent = isStandalone() ? "oui" : "non";
+        document.getElementById("manCell").textContent = "manifest.json chargé";
         return;
       }
 
-      // ✅ Comportement recommandé :
-      // - si déjà installée (standalone) -> redirection auto vers Apps Script
-      // - sinon -> rester sur GitHub Pages pour préserver l’installabilité
-      if (isStandalone() || forceGo){
-
-        // Mode installé: masquer l'UI "site"
-        var installBtn = document.getElementById("installBtn");
-        var offlineBtn = document.getElementById("offlineBtn");
-        var installHint = document.getElementById("installHint");
-        var iosHint2 = document.getElementById("iosHint");
-        if (installBtn) installBtn.style.display = "none";
-        if (offlineBtn) offlineBtn.style.display = "none";
-        if (installHint) installHint.style.display = "none";
-        if (iosHint2) iosHint2.style.display = "none";
-        var goBtn2 = document.getElementById("goBtn");
-        if (goBtn2) goBtn2.style.display = "none";
-
-        // Message de transition plus "app-like"
-        var msg = document.getElementById("launchMsg");
-        if (msg) msg.textContent = "Ouverture de Mes Actions…";
-
-        // Si hors-ligne, ne pas quitter la PWA
-        if (navigator.onLine === false && !forceGo) {
-          try { window.location.replace("./offline.html"); } catch(e) {}
-          return;
-        }
-
-        var go = function(){ try{ window.location.replace(dest); }catch(e){} };
-
-        // Redirection robuste: on tente serviceWorker.ready, mais on ne bloque jamais.
-        var already = false;
-        var goOnce = function(){
-          if (already) return;
-          already = true;
-          go();
-        };
-
-        // Fallback: si "ready" ne vient pas, on redirige quand même.
-        setTimeout(goOnce, 600);
-
-        if ("serviceWorker" in navigator) {
-          navigator.serviceWorker.ready.then(goOnce).catch(goOnce);
-        } else {
-          goOnce();
-        }
+      // Auto-redirection uniquement si installé (standalone)
+      if (standalone){
+        setTimeout(() => go(dest), 3000);
       }
     })();
   </script>
 
+  <!-- Auto-register device (ne bloque jamais l’UI) -->
+  <script defer src="./register-device.js"></script>
+
+  <!-- Service Worker -->
   <script>
-    // Bouton "Installer l’app" (affiché seulement si Chrome déclenche beforeinstallprompt)
-    (function(){
-      var deferredPrompt = null;
-      var installBtn = document.getElementById("installBtn");
-      var installHint = document.getElementById("installHint");
-
-      window.addEventListener("beforeinstallprompt", function(e){
-        e.preventDefault();
-        deferredPrompt = e;
-        installBtn.style.display = "inline-block";
-        installHint.style.display = "block";
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
       });
-
-      installBtn.addEventListener("click", function(e){
-        e.preventDefault();
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        deferredPrompt = null;
-        installBtn.style.display = "none";
-      });
-
-      window.addEventListener("appinstalled", function(){
-        deferredPrompt = null;
-        installBtn.style.display = "none";
-      });
-    })();
+    }
   </script>
+
 </body>
 </html>
