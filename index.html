@@ -74,17 +74,33 @@
     </div>
   </div>
 
-  <script>
-    // === CONFIGURATION ===
-    const ENTRY_URL =
-      "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec"
-      + "?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
+<script>
+  // === CONFIGURATION ===
+  const ENTRY_URL =
+    "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec"
+    + "?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
 
-    // === Helpers ===
-    function qs(name){
-      try { return new URL(location.href).searchParams.get(name); }
-      catch(e){ return null; }
-    }
+  // ✅ Seed localStorage for GitHub Pages origin (safe, no secrets)
+  (function seedAcrUrls(){
+    try {
+      // acr.entry (full entry URL)
+      if (!localStorage.getItem("acr.entry")) {
+        localStorage.setItem("acr.entry", ENTRY_URL);
+      }
+
+      // acr.exec (base /exec URL without params)
+      if (!localStorage.getItem("acr.exec")) {
+        const u = new URL(ENTRY_URL);
+        localStorage.setItem("acr.exec", u.origin + u.pathname);
+      }
+    } catch(e) {}
+  })();
+
+  // === Helpers ===
+  function qs(name){
+    try { return new URL(location.href).searchParams.get(name); }
+    catch(e){ return null; }
+  }
 
     function isStandaloneMode(){
       if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
