@@ -5,7 +5,7 @@
    - Offline uniquement pour la navigation (pages)
 */
 
-const SW_VERSION = "v1.0.4";
+const SW_VERSION = "v1.0.5";
 const CACHE_NAME = `mes-actions-shell-${SW_VERSION}`;
 
 const ASSETS = [
@@ -18,8 +18,6 @@ const ASSETS = [
   "./icons/maskable-512.png",
   "./icons/apple-touch-icon-180.png",
   "./icons/favicon-32.png",
-
-  // Optionnel (présent dans ton repo)
   "./icons/icon-182.png"
 ];
 
