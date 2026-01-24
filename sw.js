@@ -1,6 +1,6 @@
 /* sw.js — Mes Actions PWA shell (GitHub Pages) — BULLETPROOF */
 
-const SW_VERSION = "v1.0.9";
+const SW_VERSION = "v1.0.10";
 const CACHE_NAME = `mes-actions-shell-${SW_VERSION}`;
 const OFFLINE_URL = "./offline.html";
 
@@ -56,21 +56,30 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   // 🔒 Bulletproof offline for navigations (HTML documents)
-  if (req.mode === "navigate") {
-    event.respondWith((async () => {
-      try {
-        return await fetch(req);
-      } catch (err) {
-        const cache = await caches.open(CACHE_NAME);
+if (req.mode === "navigate") {
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+
+    try {
+      const res = await fetch(req);
+
+      // 🔑 CLÉ ABSOLUE : 404 / 500 doivent tomber en offline
+      if (!res || !res.ok) {
         const offline = await cache.match(OFFLINE_URL);
-        return offline || new Response("Offline", {
-          status: 503,
-          headers: { "Content-Type": "text/plain" }
-        });
+        return offline || res;
       }
-    })());
-    return;
-  }
+
+      return res;
+    } catch (err) {
+      const offline = await cache.match(OFFLINE_URL);
+      return offline || new Response("Offline", {
+        status: 503,
+        headers: { "Content-Type": "text/plain" }
+      });
+    }
+  })());
+  return;
+}
 
   // Assets : cache-first
   event.respondWith(
