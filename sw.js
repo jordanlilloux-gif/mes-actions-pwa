@@ -1,7 +1,8 @@
 /* sw.js — Mes Actions PWA shell (GitHub Pages) — BULLETPROOF */
 
-const SW_VERSION = "v1.0.8";
+const SW_VERSION = "v1.0.9";
 const CACHE_NAME = `mes-actions-shell-${SW_VERSION}`;
+const OFFLINE_URL = "./offline.html";
 
 const ASSETS = [
   "./manifest.json",
@@ -54,11 +55,20 @@ self.addEventListener("fetch", (event) => {
   // Ne jamais intercepter hors GitHub Pages
   if (url.origin !== self.location.origin) return;
 
-  // Navigation : network-first + offline fallback
+  // 🔒 Bulletproof offline for navigations (HTML documents)
   if (req.mode === "navigate") {
-    event.respondWith(
-      fetch(req).catch(() => caches.match("./offline.html"))
-    );
+    event.respondWith((async () => {
+      try {
+        return await fetch(req);
+      } catch (err) {
+        const cache = await caches.open(CACHE_NAME);
+        const offline = await cache.match(OFFLINE_URL);
+        return offline || new Response("Offline", {
+          status: 503,
+          headers: { "Content-Type": "text/plain" }
+        });
+      }
+    })());
     return;
   }
 
