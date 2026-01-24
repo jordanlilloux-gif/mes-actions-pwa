@@ -1,12 +1,11 @@
 /* sw.js — Mes Actions PWA shell (GitHub Pages) — BULLETPROOF */
 
-const SW_VERSION = "v1.0.7";
+const SW_VERSION = "v1.0.8";
 const CACHE_NAME = `mes-actions-shell-${SW_VERSION}`;
 
 const ASSETS = [
   "./manifest.json",
   "./offline.html",
-  "./register-device.js",
 
   "./icons/icon-512.png",
   "./icons/maskable-192.png",
