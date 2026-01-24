@@ -83,16 +83,14 @@
   // ✅ Seed localStorage for GitHub Pages origin (safe, no secrets)
   (function seedAcrUrls(){
     try {
-      // acr.entry (full entry URL)
-      if (!localStorage.getItem("acr.entry")) {
-        localStorage.setItem("acr.entry", ENTRY_URL);
-      }
+      // (non sensibles) : on écrit TOUJOURS pour éviter les états obsolètes
+      localStorage.setItem("acr.entry", ENTRY_URL);
 
-      // acr.exec (base /exec URL without params)
-      if (!localStorage.getItem("acr.exec")) {
-        const u = new URL(ENTRY_URL);
-        localStorage.setItem("acr.exec", u.origin + u.pathname);
-      }
+      const u = new URL(ENTRY_URL);
+      localStorage.setItem("acr.exec", u.origin + u.pathname); // base /exec canonique
+
+      // version de schéma côté PWA (utile si tu changes de stratégie plus tard)
+      localStorage.setItem("acr.pwaSchema", "v1");
     } catch(e) {}
   })();
 
@@ -138,9 +136,6 @@
       }
     })();
   </script>
-
-  <!-- Auto-register device (ne bloque jamais l’UI) -->
-  <script defer src="./register-device.js"></script>
 
   <!-- Service Worker -->
   <script>
