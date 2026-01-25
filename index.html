@@ -117,7 +117,22 @@
       const standalone = isStandaloneMode();
       const dest = ENTRY_URL + "&src=pwa";
 
-      document.getElementById("goBtn").href = dest;
+      // Bouton "Ouvrir Mes actions" : ne JAMAIS quitter vers Apps Script si offline
+      const goBtn = document.getElementById("goBtn");
+      goBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        // Offline -> rester sur GitHub Pages et afficher la page offline
+        if (!navigator.onLine) {
+          go("./offline.html");
+          return;
+        }
+        // Online -> aller vers la WebApp ENTRY
+        go(dest);
+      });
+
+      // Optionnel : éviter toute navigation par défaut via href (sécurité)
+      // (on le laisse à "#" et on gère tout en JS)
+      goBtn.href = "#";
 
       if (dbg){
         document.getElementById("debugArea").style.display = "block";
