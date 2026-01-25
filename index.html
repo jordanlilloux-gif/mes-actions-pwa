@@ -43,6 +43,13 @@
     .kv{ width:100%; border-collapse:collapse; margin-top:10px; }
     .kv td{ border-top:1px solid #f1f5f9; padding:8px 6px; vertical-align:top; }
     .kv td:first-child{ width:180px; color:var(--muted); }
+    .hidden{ display:none !important; }
+    .standaloneMsg{
+      text-align:center;
+      padding:18px 8px;
+      color:var(--muted);
+      font-size:14px;
+    }
   </style>
 </head>
 
@@ -50,54 +57,64 @@
   <div class="box">
     <h2 id="title">Mes Actions</h2>
 
-    <p class="muted">
-      Démarrage… si rien ne se passe, utilise le bouton ci-dessous.
-    </p>
-
-    <div class="row" style="margin:10px 0 6px 0">
-      <a class="btn btn-primary" id="goBtn" href="#">Ouvrir Mes actions</a>
-      <a class="btn" href="./offline.html">Mode hors-ligne</a>
-    </div>
-
-    <!-- Install iOS (instructions) -->
-    <div id="iosInstallHelp" style="display:none; margin-top:14px">
-      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px">
-        <div style="font-weight:800; margin-bottom:6px">Installer sur iPhone / iPad</div>
-        <div class="muted" style="font-size:14px; line-height:1.4">
-          1) Ouvre dans <strong>Safari</strong><br/>
-          2) Appuie sur <strong>Partager</strong> (⬆️)<br/>
-          3) Choisis <strong>Sur l’écran d’accueil / Ajouter à l’écran d’accueil</strong>.<br/>
-          4) Laisse activé <strong>Ouvrir comme app web</strong>.<br/>
-          5) Appuie sur <strong>Ajouter</strong>.
-        </div>
+    <!-- Standalone minimal UI -->
+    <div id="standaloneArea" class="hidden">
+      <div class="standaloneMsg">
+        Ouverture de l’application…
       </div>
     </div>
 
-    <!-- Install Android (button, shown only if beforeinstallprompt fires) -->
-    <div id="androidInstallBox" style="display:none; margin-top:14px">
-      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px">
-        <div style="font-weight:800; margin-bottom:6px">Installer l’application</div>
-        <div class="row" style="margin-top:8px">
-          <a class="btn" id="androidInstallBtn" href="#" style="font-weight:800">Installer sur Android</a>
-        </div>
-        <div class="muted" style="margin-top:8px">
-          Si le bouton n’apparaît pas : menu ⋮ → <strong>Installer l’application</strong>.
-        </div>
-      </div>
-    </div>
-
-    <!-- Zone debug -->
-    <div id="debugArea" style="display:none; margin-top:14px">
+    <!-- Browser UI (hidden in standalone) -->
+    <div id="browserArea">
       <p class="muted">
-        Mode debug activé (<code>?pwa_dbg=1</code>) — pas de redirection automatique.
+        Démarrage… si rien ne se passe, utilise le bouton ci-dessous.
       </p>
-      <table class="kv">
-        <tr><td>Destination</td><td class="mono" id="destCell"></td></tr>
-        <tr><td>URL actuelle</td><td class="mono" id="hereCell"></td></tr>
-        <tr><td>Standalone</td><td class="mono" id="standCell"></td></tr>
-        <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
-        <tr><td>Manifest</td><td class="mono" id="manCell"></td></tr>
-      </table>
+
+      <div class="row" style="margin:10px 0 6px 0">
+        <a class="btn btn-primary" id="goBtn" href="#">Ouvrir Mes actions</a>
+        <a class="btn" href="./offline.html">Mode hors-ligne</a>
+      </div>
+
+      <!-- Install iOS (instructions) -->
+      <div id="iosInstallHelp" style="display:none; margin-top:14px">
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px">
+          <div style="font-weight:800; margin-bottom:6px">Installer sur iPhone / iPad</div>
+          <div class="muted" style="font-size:14px; line-height:1.4">
+            1) Ouvre dans <strong>Safari</strong><br/>
+            2) Appuie sur <strong>Partager</strong> (⬆️)<br/>
+            3) Choisis <strong>Sur l’écran d’accueil / Ajouter à l’écran d’accueil</strong>.<br/>
+            4) Laisse activé <strong>Ouvrir comme app web</strong>.<br/>
+            5) Appuie sur <strong>Ajouter</strong>.
+          </div>
+        </div>
+      </div>
+
+      <!-- Install Android (button, shown only if beforeinstallprompt fires) -->
+      <div id="androidInstallBox" style="display:none; margin-top:14px">
+        <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px">
+          <div style="font-weight:800; margin-bottom:6px">Installer l’application</div>
+          <div class="row" style="margin-top:8px">
+            <a class="btn" id="androidInstallBtn" href="#" style="font-weight:800">Installer sur Android</a>
+          </div>
+          <div class="muted" style="margin-top:8px">
+            Si le bouton n’apparaît pas : menu ⋮ → <strong>Installer l’application</strong>.
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone debug -->
+      <div id="debugArea" style="display:none; margin-top:14px">
+        <p class="muted">
+          Mode debug activé (<code>?pwa_dbg=1</code>) — pas de redirection automatique.
+        </p>
+        <table class="kv">
+          <tr><td>Destination</td><td class="mono" id="destCell"></td></tr>
+          <tr><td>URL actuelle</td><td class="mono" id="hereCell"></td></tr>
+          <tr><td>Standalone</td><td class="mono" id="standCell"></td></tr>
+          <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
+          <tr><td>Manifest</td><td class="mono" id="manCell"></td></tr>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -110,122 +127,122 @@
   // ✅ Seed localStorage for GitHub Pages origin (safe, no secrets)
   (function seedAcrUrls(){
     try {
-      // (non sensibles) : on écrit TOUJOURS pour éviter les états obsolètes
       localStorage.setItem("acr.entry", ENTRY_URL);
-
       const u = new URL(ENTRY_URL);
-      localStorage.setItem("acr.exec", u.origin + u.pathname); // base /exec canonique
-
-      // version de schéma côté PWA (utile si tu changes de stratégie plus tard)
+      localStorage.setItem("acr.exec", u.origin + u.pathname);
       localStorage.setItem("acr.pwaSchema", "v1");
     } catch(e) {}
   })();
 
-  // === Helpers ===
   function qs(name){
     try { return new URL(location.href).searchParams.get(name); }
     catch(e){ return null; }
   }
 
-    function isStandaloneMode(){
-      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
-      if ("standalone" in navigator && navigator.standalone) return true; // iOS
-      return false;
-    }
+  function isStandaloneMode(){
+    if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) return true;
+    if ("standalone" in navigator && navigator.standalone) return true; // iOS
+    return false;
+  }
 
-    function go(url){
-      try { location.replace(url); }
-      catch(e){ location.href = url; }
-    }
+  function go(url){
+    try { location.replace(url); }
+    catch(e){ location.href = url; }
+  }
 
-    // === Init ===
-    (function(){
-      const dbg = qs("pwa_dbg") === "1";
-      const standalone = isStandaloneMode();
-      const dest = ENTRY_URL + "&src=pwa";
+  (function init(){
+    const dbg = qs("pwa_dbg") === "1";
+    const standalone = isStandaloneMode();
+    const dest = ENTRY_URL + "&src=pwa";
 
-      // --- Install UI (iOS + Android) ---
-      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const browserArea = document.getElementById("browserArea");
+    const standaloneArea = document.getElementById("standaloneArea");
 
-      // iOS: show instructions only when NOT installed (not standalone)
-      if (isIOS && !standalone) {
-        const iosHelp = document.getElementById("iosInstallHelp");
-        if (iosHelp) iosHelp.style.display = "block";
-      }
+    // --- Standalone minimal UI (only if not in debug) ---
+    if (standalone && !dbg) {
+      if (browserArea) browserArea.classList.add("hidden");
+      if (standaloneArea) standaloneArea.classList.remove("hidden");
 
-      // Android: show install button only if Chrome provides beforeinstallprompt
-      let deferredInstallPrompt = null;
-      window.addEventListener("beforeinstallprompt", (e) => {
-        e.preventDefault();
-        deferredInstallPrompt = e;
-        if (!standalone) {
-          const box = document.getElementById("androidInstallBox");
-          if (box) box.style.display = "block";
-        }
-      });
-
-      const installBtn = document.getElementById("androidInstallBtn");
-      if (installBtn) {
-        installBtn.addEventListener("click", async (e) => {
-          e.preventDefault();
-          if (!deferredInstallPrompt) return;
-          deferredInstallPrompt.prompt();
-          try { await deferredInstallPrompt.userChoice; } catch(_) {}
-          deferredInstallPrompt = null;
-          const box = document.getElementById("androidInstallBox");
-          if (box) box.style.display = "none";
-        });
-      }
-
-      // Bouton "Ouvrir Mes actions" : ne JAMAIS quitter vers Apps Script si offline
-      const goBtn = document.getElementById("goBtn");
-      goBtn.addEventListener("click", (e) => {
-        e.preventDefault();
-        // Offline -> rester sur GitHub Pages et afficher la page offline
-        if (!navigator.onLine) {
-          go("./offline.html");
-          return;
-        }
-        // Online -> aller vers la WebApp ENTRY
-        go(dest);
-      });
-
-      // Optionnel : éviter toute navigation par défaut via href (sécurité)
-      // (on le laisse à "#" et on gère tout en JS)
-      goBtn.href = "#";
-
-      if (dbg){
-        document.getElementById("debugArea").style.display = "block";
-        document.getElementById("title").textContent = "Mes Actions (DEBUG)";
-        document.getElementById("destCell").textContent = dest;
-        document.getElementById("hereCell").textContent = location.href;
-        document.getElementById("standCell").textContent = standalone ? "oui" : "non";
-        document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
-        document.getElementById("manCell").textContent = "manifest.json chargé";
+      // Offline => stay on GitHub Pages
+      if (!navigator.onLine) {
+        go("./offline.html");
         return;
       }
+      // Online => go to Apps Script entry
+      go(dest);
+      return;
+    }
 
-      // Auto-redirection uniquement si installé (standalone)
-      if (standalone){
-        // Offline => ne jamais quitter GitHub Pages
+    // --- Install UI (iOS + Android) ---
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+    // iOS: show instructions only when NOT installed (not standalone)
+    if (isIOS && !standalone) {
+      const iosHelp = document.getElementById("iosInstallHelp");
+      if (iosHelp) iosHelp.style.display = "block";
+    }
+
+    // Android: show install button only if Chrome provides beforeinstallprompt
+    let deferredInstallPrompt = null;
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+      if (!standalone) {
+        const box = document.getElementById("androidInstallBox");
+        if (box) box.style.display = "block";
+      }
+    });
+
+    const installBtn = document.getElementById("androidInstallBtn");
+    if (installBtn) {
+      installBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        if (!deferredInstallPrompt) return;
+        deferredInstallPrompt.prompt();
+        try { await deferredInstallPrompt.userChoice; } catch(_) {}
+        deferredInstallPrompt = null;
+        const box = document.getElementById("androidInstallBox");
+        if (box) box.style.display = "none";
+      });
+    }
+
+    // Button: never leave GitHub Pages if offline
+    const goBtn = document.getElementById("goBtn");
+    if (goBtn) {
+      goBtn.addEventListener("click", (e) => {
+        e.preventDefault();
         if (!navigator.onLine) {
           go("./offline.html");
           return;
         }
-        // Online => redirection immédiate vers ENTRY
         go(dest);
-      }
-    })();
-  </script>
-
-  <!-- Service Worker -->
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch(() => {});
       });
+      goBtn.href = "#";
     }
-  </script>
+
+    if (dbg){
+      document.getElementById("debugArea").style.display = "block";
+      document.getElementById("title").textContent = "Mes Actions (DEBUG)";
+      document.getElementById("destCell").textContent = dest;
+      document.getElementById("hereCell").textContent = location.href;
+      document.getElementById("standCell").textContent = standalone ? "oui" : "non";
+      document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
+      document.getElementById("manCell").textContent = "manifest.json chargé";
+      return;
+    }
+
+    // Non-standalone: no auto redirect (user clicks button)
+  })();
+</script>
+
+<!-- Service Worker -->
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    });
+  }
+</script>
 
 </body>
 </html>
