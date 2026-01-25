@@ -59,6 +59,31 @@
       <a class="btn" href="./offline.html">Mode hors-ligne</a>
     </div>
 
+    <!-- Install iOS (instructions) -->
+    <div id="iosInstallHelp" style="display:none; margin-top:14px">
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px">
+        <div style="font-weight:800; margin-bottom:6px">Installer sur iPhone / iPad</div>
+        <div class="muted" style="font-size:14px; line-height:1.4">
+          1) Ouvre dans <strong>Safari</strong><br/>
+          2) Appuie sur <strong>Partager</strong> (⬆️)<br/>
+          3) Choisis <strong>Ajouter à l’écran d’accueil</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Install Android (button, shown only if beforeinstallprompt fires) -->
+    <div id="androidInstallBox" style="display:none; margin-top:14px">
+      <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:12px;padding:12px">
+        <div style="font-weight:800; margin-bottom:6px">Installer l’application</div>
+        <div class="row" style="margin-top:8px">
+          <a class="btn" id="androidInstallBtn" href="#" style="font-weight:800">Installer sur Android</a>
+        </div>
+        <div class="muted" style="margin-top:8px">
+          Si le bouton n’apparaît pas : menu ⋮ → <strong>Installer l’application</strong>.
+        </div>
+      </div>
+    </div>
+
     <!-- Zone debug -->
     <div id="debugArea" style="display:none; margin-top:14px">
       <p class="muted">
@@ -117,6 +142,39 @@
       const standalone = isStandaloneMode();
       const dest = ENTRY_URL + "&src=pwa";
 
+      // --- Install UI (iOS + Android) ---
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+
+      // iOS: show instructions only when NOT installed (not standalone)
+      if (isIOS && !standalone) {
+        const iosHelp = document.getElementById("iosInstallHelp");
+        if (iosHelp) iosHelp.style.display = "block";
+      }
+
+      // Android: show install button only if Chrome provides beforeinstallprompt
+      let deferredInstallPrompt = null;
+      window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        if (!standalone) {
+          const box = document.getElementById("androidInstallBox");
+          if (box) box.style.display = "block";
+        }
+      });
+
+      const installBtn = document.getElementById("androidInstallBtn");
+      if (installBtn) {
+        installBtn.addEventListener("click", async (e) => {
+          e.preventDefault();
+          if (!deferredInstallPrompt) return;
+          deferredInstallPrompt.prompt();
+          try { await deferredInstallPrompt.userChoice; } catch(_) {}
+          deferredInstallPrompt = null;
+          const box = document.getElementById("androidInstallBox");
+          if (box) box.style.display = "none";
+        });
+      }
+
       // Bouton "Ouvrir Mes actions" : ne JAMAIS quitter vers Apps Script si offline
       const goBtn = document.getElementById("goBtn");
       goBtn.addEventListener("click", (e) => {
@@ -147,7 +205,13 @@
 
       // Auto-redirection uniquement si installé (standalone)
       if (standalone){
-        setTimeout(() => go(dest), 3000);
+        // Offline => ne jamais quitter GitHub Pages
+        if (!navigator.onLine) {
+          go("./offline.html");
+          return;
+        }
+        // Online => redirection immédiate vers ENTRY
+        go(dest);
       }
     })();
   </script>
