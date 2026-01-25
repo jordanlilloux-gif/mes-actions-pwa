@@ -1,6 +1,6 @@
 /* sw.js — Mes Actions PWA shell (GitHub Pages) — BULLETPROOF */
 
-const SW_VERSION = "v1.0.10";
+const SW_VERSION = "v1.0.11";
 const CACHE_NAME = `mes-actions-shell-${SW_VERSION}`;
 const OFFLINE_URL = "./offline.html";
 
