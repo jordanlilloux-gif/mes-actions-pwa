@@ -124,6 +124,83 @@
     "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec"
     + "?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
 
+  function getStoredSt_(){
+    try {
+      const qst = qs("st");
+      if (qst) {
+        localStorage.setItem("acr.st", qst);
+        return qst;
+      }
+      return localStorage.getItem("acr.st") || "";
+    } catch(e) {
+      return "";
+    }
+  }
+
+  function notifGetFp_(key){
+    try { return localStorage.getItem(key) || ""; }
+    catch(e){ return ""; }
+  }
+
+  function notifSetFp_(key, value){
+    try { localStorage.setItem(key, String(value || "")); }
+    catch(e){}
+  }
+
+  async function checkNotifState_(){
+    const st = getStoredSt_();
+    if (!st) return null;
+
+    const url = NOTIFSTATE_URL + "&st=" + encodeURIComponent(st);
+
+    try{
+      const res = await fetch(url, { cache: "no-store" });
+      const data = await res.json();
+      if (!data || !data.ok) return null;
+
+      const oldMy = notifGetFp_("acr.notif.fp.myactions");
+      const oldTeam = notifGetFp_("acr.notif.fp.teamactions");
+
+      const newMy = (((data || {}).myactions || {}).fingerprint || "");
+      const newTeam = (((data || {}).teamactions || {}).fingerprint || "");
+
+      const changedMy = !!oldMy && newMy !== oldMy;
+      const changedTeam = !!oldTeam && newTeam !== oldTeam;
+
+      notifSetFp_("acr.notif.fp.myactions", newMy);
+      notifSetFp_("acr.notif.fp.teamactions", newTeam);
+
+      try {
+        localStorage.setItem("acr.notif.last", JSON.stringify({
+          at: new Date().toISOString(),
+          email: data.email || "",
+          myactions: {
+            unseenCount: (((data || {}).myactions || {}).unseenCount || 0),
+            fingerprint: newMy,
+            changed: changedMy
+          },
+          teamactions: {
+            unseenCount: (((data || {}).teamactions || {}).unseenCount || 0),
+            fingerprint: newTeam,
+            changed: changedTeam
+          }
+        }));
+      } catch(e){}
+
+      if (changedMy) {
+        console.log("[notifstate] nouveautés Mes actions");
+      }
+      if (changedTeam) {
+        console.log("[notifstate] nouveautés TeamActions");
+      }
+
+      return data;
+    }catch(e){
+      console.warn("[notifstate] error", e);
+      return null;
+    }
+  }
+
   // ✅ Seed localStorage for GitHub Pages origin (safe, no secrets)
   (function seedAcrUrls(){
     try {
@@ -228,9 +305,25 @@
       document.getElementById("standCell").textContent = standalone ? "oui" : "non";
       document.getElementById("swCell").textContent = ("serviceWorker" in navigator) ? "oui" : "non";
       document.getElementById("manCell").textContent = "manifest.json chargé";
+      checkNotifState_();
+      setInterval(checkNotifState_, 60000);
       return;
     }
+    
+    checkNotifState_();
 
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        checkNotifState_();
+      }
+    });
+
+    setInterval(() => {
+      if (document.visibilityState === "visible") {
+        checkNotifState_();
+      }
+    }, 60000);
+    
     // Non-standalone: no auto redirect (user clicks button)
   })();
 </script>
