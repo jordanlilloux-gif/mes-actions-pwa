@@ -124,6 +124,9 @@
     "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec"
     + "?mode=entry&audience=leaders&ek=e187f8a94f7f47b1a933d73c";
 
+  const NOTIFSTATE_URL =
+    "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec"
+    + "?mode=notifstate";  
   function getStoredSt_(){
     try {
       const qst = qs("st");
@@ -151,7 +154,7 @@
     const st = getStoredSt_();
     if (!st) return null;
 
-    const url = NOTIFSTATE_URL + "&st=" + encodeURIComponent(st);
+    const url = NOTIFSTATE_URL + "&st=" + encodeURIComponent(st) + "&_=" + Date.now();
 
     try{
       const res = await fetch(url, { cache: "no-store" });
@@ -194,6 +197,11 @@
         console.log("[notifstate] nouveautés TeamActions");
       }
 
+      console.log("[notifstate] ok", {
+        email: data.email || "",
+        myactions: (data.myactions || {}).unseenCount || 0,
+        teamactions: (data.teamactions || {}).unseenCount || 0
+      });      
       return data;
     }catch(e){
       console.warn("[notifstate] error", e);
