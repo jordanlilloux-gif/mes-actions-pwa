@@ -150,6 +150,9 @@
           <div>myactions : <span id="dbgMy">-</span></div>
           <div>teamactions : <span id="dbgTeam">-</span></div>
           <div>dernier check : <span id="dbgTime">-</span></div>
+          <div>état : <span id="dbgNotifState">-</span></div>
+          <div>st présent : <span id="dbgHasSt">-</span></div>
+          <div>exec présent : <span id="dbgHasExec">-</span></div>          
         </div>
         
       </div>
@@ -184,10 +187,21 @@
   }
 
   function notifSetFp_(key, value){
-    try { localStorage.setItem(key, String(value || "")); }
+    try { localStorage.setItem(key, String(value || "")); }      
     catch(e){}
   }
 
+  function setNotifDebugState_(state, hasSt, hasExec){
+    try{
+      const stateEl = document.getElementById("dbgNotifState");
+      const stEl = document.getElementById("dbgHasSt");
+      const execEl = document.getElementById("dbgHasExec");
+
+      if (stateEl) stateEl.textContent = String(state || "-");
+      if (stEl) stEl.textContent = hasSt ? "oui" : "non";
+      if (execEl) execEl.textContent = hasExec ? "oui" : "non";
+    }catch(_){}
+  }
   let lastToastKey_ = null;
 
   function showNotifToast_(title, sub){
@@ -218,14 +232,35 @@
   
   async function checkNotifState_(){
     const st = getStoredSt_();
-    if (!st) return null;
+    const exec = (localStorage.getItem("acr.exec") || "").trim();
+
+    if (!st) {
+      setNotifDebugState_("acr.st manquant", false, !!exec);
+      try{
+        const timeEl = document.getElementById("dbgTime");
+        if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
+      }catch(_){}
+      return null;
+    }
+
+    if (!exec) {
+      setNotifDebugState_("acr.exec manquant", true, false);
+      try{
+        const timeEl = document.getElementById("dbgTime");
+        if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
+      }catch(_){}
+      return null;
+    }
 
     const url = NOTIFSTATE_URL + "&st=" + encodeURIComponent(st) + "&_=" + Date.now();
 
     try{
+      setNotifDebugState_("fetch notifstate…", true, true);      
       const res = await fetch(url, { cache: "no-store" });
-      const data = await res.json();
-      if (!data || !data.ok) return null;
+      if (!data || !data.ok) {
+        setNotifDebugState_("réponse invalide", true, true);
+        return null;
+      }
 
       const oldMy = notifGetFp_("acr.notif.fp.myactions");
       const oldTeam = notifGetFp_("acr.notif.fp.teamactions");
@@ -288,9 +323,11 @@
         if (myEl) myEl.textContent = my;
         if (teamEl) teamEl.textContent = team;
         if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
+        setNotifDebugState_("ok", true, true);        
       }catch(_){}      
       return data;
     }catch(e){
+      setNotifDebugState_("erreur fetch/json", !!st, !!exec);      
       console.warn("[notifstate] error", e);
       return null;
     }
