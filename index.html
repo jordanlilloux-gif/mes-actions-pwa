@@ -230,108 +230,115 @@
     }catch(e){}
   }
   
-  async function checkNotifState_(){
-    const st = getStoredSt_();
-    const exec = (localStorage.getItem("acr.exec") || "").trim();
+async function checkNotifState_(){
+  const st = getStoredSt_();
+  const exec = (localStorage.getItem("acr.exec") || "").trim();
 
-    if (!st) {
-      setNotifDebugState_("acr.st manquant", false, !!exec);
-      try{
-        const timeEl = document.getElementById("dbgTime");
-        if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
-      }catch(_){}
+  if (!st) {
+    setNotifDebugState_("acr.st manquant", false, !!exec);
+    try{
+      const timeEl = document.getElementById("dbgTime");
+      if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
+    }catch(_){}
+    return null;
+  }
+
+  if (!exec) {
+    setNotifDebugState_("acr.exec manquant", true, false);
+    try{
+      const timeEl = document.getElementById("dbgTime");
+      if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
+    }catch(_){}
+    return null;
+  }
+
+  const url = NOTIFSTATE_URL + "&st=" + encodeURIComponent(st) + "&_=" + Date.now();
+
+  try{
+    setNotifDebugState_("fetch notifstate…", true, true);
+
+    const res = await fetch(url, { cache: "no-store" });
+    const data = await res.json();
+
+    if (!data || !data.ok) {
+      setNotifDebugState_("réponse invalide", true, true);
       return null;
     }
 
-    if (!exec) {
-      setNotifDebugState_("acr.exec manquant", true, false);
-      try{
-        const timeEl = document.getElementById("dbgTime");
-        if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
-      }catch(_){}
-      return null;
+    const oldMy = notifGetFp_("acr.notif.fp.myactions");
+    const oldTeam = notifGetFp_("acr.notif.fp.teamactions");
+
+    const newMy = (((data || {}).myactions || {}).fingerprint || "");
+    const newTeam = (((data || {}).teamactions || {}).fingerprint || "");
+
+    const changedMy = !!oldMy && newMy !== oldMy;
+    const changedTeam = !!oldTeam && newTeam !== oldTeam;
+
+    notifSetFp_("acr.notif.fp.myactions", newMy);
+    notifSetFp_("acr.notif.fp.teamactions", newTeam);
+
+    try {
+      localStorage.setItem("acr.notif.last", JSON.stringify({
+        at: new Date().toISOString(),
+        email: data.email || "",
+        myactions: {
+          unseenCount: (((data || {}).myactions || {}).unseenCount || 0),
+          fingerprint: newMy,
+          changed: changedMy
+        },
+        teamactions: {
+          unseenCount: (((data || {}).teamactions || {}).unseenCount || 0),
+          fingerprint: newTeam,
+          changed: changedTeam
+        }
+      }));
+    } catch(e) {}
+
+    if (changedMy) {
+      console.log("[notifstate] nouveau commentaire admin");
+      showNotifToast_(
+        "🔔 Nouveau commentaire admin",
+        "Un administrateur a répondu à une de vos actions."
+      );
     }
 
-    const url = NOTIFSTATE_URL + "&st=" + encodeURIComponent(st) + "&_=" + Date.now();
+    if (changedTeam) {
+      console.log("[notifstate] nouveau commentaire TeamActions");
+      showNotifToast_(
+        "🔔 Nouveau commentaire dans TeamActions",
+        "Un utilisateur a ajouté un commentaire visible par les administrateurs."
+      );
+    }
+
+    console.log("[notifstate] ok", {
+      email: data.email || "",
+      myactions: (data.myactions || {}).unseenCount || 0,
+      teamactions: (data.teamactions || {}).unseenCount || 0
+    });
 
     try{
-      setNotifDebugState_("fetch notifstate…", true, true);      
-      const res = await fetch(url, { cache: "no-store" });
-      if (!data || !data.ok) {
-        setNotifDebugState_("réponse invalide", true, true);
-        return null;
-      }
+      const my = (data.myactions || {}).unseenCount || 0;
+      const team = (data.teamactions || {}).unseenCount || 0;
 
-      const oldMy = notifGetFp_("acr.notif.fp.myactions");
-      const oldTeam = notifGetFp_("acr.notif.fp.teamactions");
+      const myEl = document.getElementById("dbgMy");
+      const teamEl = document.getElementById("dbgTeam");
+      const timeEl = document.getElementById("dbgTime");
 
-      const newMy = (((data || {}).myactions || {}).fingerprint || "");
-      const newTeam = (((data || {}).teamactions || {}).fingerprint || "");
+      if (myEl) myEl.textContent = my;
+      if (teamEl) teamEl.textContent = team;
+      if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
 
-      const changedMy = !!oldMy && newMy !== oldMy;
-      const changedTeam = !!oldTeam && newTeam !== oldTeam;
+      setNotifDebugState_("ok", true, true);
+    }catch(_){}
 
-      notifSetFp_("acr.notif.fp.myactions", newMy);
-      notifSetFp_("acr.notif.fp.teamactions", newTeam);
+    return data;
 
-      try {
-        localStorage.setItem("acr.notif.last", JSON.stringify({
-          at: new Date().toISOString(),
-          email: data.email || "",
-          myactions: {
-            unseenCount: (((data || {}).myactions || {}).unseenCount || 0),
-            fingerprint: newMy,
-            changed: changedMy
-          },
-          teamactions: {
-            unseenCount: (((data || {}).teamactions || {}).unseenCount || 0),
-            fingerprint: newTeam,
-            changed: changedTeam
-          }
-        }));
-      } catch(e){}
-
-      if (changedMy) {
-        console.log("[notifstate] nouveau commentaire admin");
-        showNotifToast_(
-          "🔔 Nouveau commentaire admin",
-          "Un administrateur a répondu à une de vos actions."
-        );        
-      }
-      if (changedTeam) {
-        console.log("[notifstate] nouveau commentaire TeamActions");
-        showNotifToast_(
-          "🔔 Nouveau commentaire dans TeamActions",
-          "Un utilisateur a ajouté un commentaire visible par les administrateurs."
-        );        
-      }
-
-      console.log("[notifstate] ok", {
-        email: data.email || "",
-        myactions: (data.myactions || {}).unseenCount || 0,
-        teamactions: (data.teamactions || {}).unseenCount || 0
-      });
-
-      try{
-        const my = (data.myactions || {}).unseenCount || 0;
-        const team = (data.teamactions || {}).unseenCount || 0;
-
-        const myEl = document.getElementById("dbgMy");
-        const teamEl = document.getElementById("dbgTeam");
-        const timeEl = document.getElementById("dbgTime");
-
-        if (myEl) myEl.textContent = my;
-        if (teamEl) teamEl.textContent = team;
-        if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
-        setNotifDebugState_("ok", true, true);        
-      }catch(_){}      
-      return data;
-    }catch(e){
-      setNotifDebugState_("erreur fetch/json", !!st, !!exec);      
-      console.warn("[notifstate] error", e);
-      return null;
-    }
+  }catch(e){
+    setNotifDebugState_("erreur fetch/json", true, true);
+    console.warn("[notifstate] error", e);
+    return null;
   }
+}
 
   // ✅ Seed localStorage for GitHub Pages origin (safe, no secrets)
   (function seedAcrUrls(){
