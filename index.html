@@ -188,10 +188,15 @@
     catch(e){}
   }
 
-  let notifToastTimer_ = null;
+  let lastToastKey_ = null;
 
   function showNotifToast_(title, sub){
     try{
+
+      const key = title + "|" + sub;
+      if (lastToastKey_ === key) return;
+      lastToastKey_ = key;
+      
       const box = document.getElementById("notifToast");
       const t = document.getElementById("notifToastTitle");
       const s = document.getElementById("notifToastSub");
