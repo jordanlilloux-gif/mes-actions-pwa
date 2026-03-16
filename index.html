@@ -60,7 +60,6 @@
       pointer-events:none;
     }
     .toast{
-      display:none;
       background:#111;
       color:#fff;
       border-radius:14px;
@@ -69,8 +68,21 @@
       font-size:14px;
       line-height:1.35;
       pointer-events:auto;
+      opacity:0;
+      visibility:hidden;
+      transform:translateY(-8px);
+      transition:opacity .22s ease, transform .22s ease, visibility .22s ease;      
     }
-    .toast.show{ display:block; }
+    .toast.show{
+      opacity:1;
+      visibility:visible;
+      transform:translateY(0);
+    }
+    .toast.hide{
+      opacity:0;
+      visibility:hidden;
+      transform:translateY(-8px);
+    }
     .toastTitle{ font-weight:800; margin-bottom:2px; }
     .toastSub{ opacity:.88; font-size:13px; }    
   </style>
@@ -202,11 +214,12 @@
       if (execEl) execEl.textContent = hasExec ? "oui" : "non";
     }catch(_){}
   }
+  let notifToastTimer_ = null;
+  let notifToastHideTimer_ = null;  
   let lastToastKey_ = null;
 
   function showNotifToast_(title, sub){
     try{
-
       const key = title + "|" + sub;
       if (lastToastKey_ === key) return;
       lastToastKey_ = key;
@@ -219,16 +232,50 @@
       t.textContent = String(title || "");
       s.textContent = String(sub || "");
 
-      box.classList.add("show");
-
       if (notifToastTimer_) {
         clearTimeout(notifToastTimer_);
+        notifToastTimer_ = null;
       }
+      if (notifToastHideTimer_) {
+        clearTimeout(notifToastHideTimer_);
+        notifToastHideTimer_ = null;
+      }
+
+      box.classList.remove("hide");      
+      box.classList.add("show");
+
       notifToastTimer_ = setTimeout(() => {
+        box.classList.add("hide");
         box.classList.remove("show");
+
+        notifToastHideTimer_ = setTimeout(() => {
+          box.classList.remove("hide");
+        }, 260);
       }, 4200);
     }catch(e){}
   }
+
+  (function bindToastDismiss_(){
+    try{
+      const box = document.getElementById("notifToast");
+      if (!box) return;
+      box.addEventListener("click", function(){
+        try{
+          if (notifToastTimer_) {
+            clearTimeout(notifToastTimer_);
+            notifToastTimer_ = null;
+          }
+          if (notifToastHideTimer_) {
+            clearTimeout(notifToastHideTimer_);
+            notifToastHideTimer_ = null;
+          }
+          box.classList.add("hide");
+          box.classList.remove("show");
+          setTimeout(() => box.classList.remove("hide"), 260);
+        }catch(_){}
+      }, { passive:true });
+    }catch(_){}
+  })();
   
 async function checkNotifState_(){
   const st = getStoredSt_();
