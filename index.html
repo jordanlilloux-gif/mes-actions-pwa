@@ -144,6 +144,14 @@
           <tr><td>SW support</td><td class="mono" id="swCell"></td></tr>
           <tr><td>Manifest</td><td class="mono" id="manCell"></td></tr>
         </table>
+        
+        <div id="notifDebug" style="margin-top:12px;font-size:13px;color:#374151;">
+          <div><b>notifstate</b></div>
+          <div>myactions : <span id="dbgMy">-</span></div>
+          <div>teamactions : <span id="dbgTeam">-</span></div>
+          <div>dernier check : <span id="dbgTime">-</span></div>
+        </div>
+        
       </div>
     </div>
   </div>
@@ -244,17 +252,17 @@
       } catch(e){}
 
       if (changedMy) {
-        console.log("[notifstate] nouveautés Mes actions");
+        console.log("[notifstate] nouveau commentaire admin");
         showNotifToast_(
           "🔔 Nouveau commentaire admin",
           "Un administrateur a répondu à une de vos actions."
         );        
       }
       if (changedTeam) {
-        console.log("[notifstate] nouveautés TeamActions");
+        console.log("[notifstate] nouveau commentaire TeamActions");
         showNotifToast_(
-          "🔔 Nouveau commentaire utilisateur",
-          "Un utilisateur a ajouté un commentaire dans TeamActions."
+          "🔔 Nouveau commentaire dans TeamActions",
+          "Un utilisateur a ajouté un commentaire visible par les administrateurs."
         );        
       }
 
@@ -262,7 +270,20 @@
         email: data.email || "",
         myactions: (data.myactions || {}).unseenCount || 0,
         teamactions: (data.teamactions || {}).unseenCount || 0
-      });      
+      });
+
+      try{
+        const my = (data.myactions || {}).unseenCount || 0;
+        const team = (data.teamactions || {}).unseenCount || 0;
+
+        const myEl = document.getElementById("dbgMy");
+        const teamEl = document.getElementById("dbgTeam");
+        const timeEl = document.getElementById("dbgTime");
+
+        if (myEl) myEl.textContent = my;
+        if (teamEl) teamEl.textContent = team;
+        if (timeEl) timeEl.textContent = new Date().toLocaleTimeString();
+      }catch(_){}      
       return data;
     }catch(e){
       console.warn("[notifstate] error", e);
