@@ -50,10 +50,40 @@
       color:var(--muted);
       font-size:14px;
     }
+    .toastWrap{
+      position:fixed;
+      top:14px;
+      left:50%;
+      transform:translateX(-50%);
+      z-index:9999;
+      width:min(92vw, 560px);
+      pointer-events:none;
+    }
+    .toast{
+      display:none;
+      background:#111;
+      color:#fff;
+      border-radius:14px;
+      padding:12px 14px;
+      box-shadow:0 10px 30px rgba(0,0,0,.18);
+      font-size:14px;
+      line-height:1.35;
+      pointer-events:auto;
+    }
+    .toast.show{ display:block; }
+    .toastTitle{ font-weight:800; margin-bottom:2px; }
+    .toastSub{ opacity:.88; font-size:13px; }    
   </style>
 </head>
 
 <body>
+  <div class="toastWrap">
+    <div id="notifToast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+      <div id="notifToastTitle" class="toastTitle"></div>
+      <div id="notifToastSub" class="toastSub"></div>
+    </div>
+  </div>
+  
   <div class="box">
     <h2 id="title">Mes Actions</h2>
 
@@ -150,6 +180,29 @@
     catch(e){}
   }
 
+  let notifToastTimer_ = null;
+
+  function showNotifToast_(title, sub){
+    try{
+      const box = document.getElementById("notifToast");
+      const t = document.getElementById("notifToastTitle");
+      const s = document.getElementById("notifToastSub");
+      if (!box || !t || !s) return;
+
+      t.textContent = String(title || "");
+      s.textContent = String(sub || "");
+
+      box.classList.add("show");
+
+      if (notifToastTimer_) {
+        clearTimeout(notifToastTimer_);
+      }
+      notifToastTimer_ = setTimeout(() => {
+        box.classList.remove("show");
+      }, 4200);
+    }catch(e){}
+  }
+  
   async function checkNotifState_(){
     const st = getStoredSt_();
     if (!st) return null;
@@ -192,9 +245,17 @@
 
       if (changedMy) {
         console.log("[notifstate] nouveautés Mes actions");
+        showNotifToast_(
+          "🔔 Nouveau commentaire admin",
+          "Un administrateur a répondu à une de vos actions."
+        );        
       }
       if (changedTeam) {
         console.log("[notifstate] nouveautés TeamActions");
+        showNotifToast_(
+          "🔔 Nouveau commentaire utilisateur",
+          "Un utilisateur a ajouté un commentaire dans TeamActions."
+        );        
       }
 
       console.log("[notifstate] ok", {
