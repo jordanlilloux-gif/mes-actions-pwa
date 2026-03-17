@@ -421,19 +421,15 @@ async function checkNotifState_(){
     const browserArea = document.getElementById("browserArea");
     const standaloneArea = document.getElementById("standaloneArea");
 
-    // --- Standalone minimal UI (only if not in debug) ---
+    // --- Standalone ---
+    // On ne redirige plus automatiquement.
+    // La standalone doit rester sur github.io pour permettre :
+    // 1) l’activation des notifications
+    // 2) l’enregistrement push
+    // 3) puis seulement l’ouverture de Mes Actions sur clic.
     if (standalone && !dbg) {
-      if (browserArea) browserArea.classList.add("hidden");
-      if (standaloneArea) standaloneArea.classList.remove("hidden");
-
-      // Offline => stay on GitHub Pages
-      if (!navigator.onLine) {
-        go("./offline.html");
-        return;
-      }
-      // Online => go to Apps Script entry
-      go(dest);
-      return;
+      if (browserArea) browserArea.classList.remove("hidden");
+      if (standaloneArea) standaloneArea.classList.add("hidden");
     }
 
     // --- Install UI (iOS + Android) ---
