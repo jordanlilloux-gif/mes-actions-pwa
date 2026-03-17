@@ -546,6 +546,23 @@ async function checkNotifState_(){
     });
   }
 </script>
-
+<script>
+  (function(){
+    try {
+      const box = document.createElement("pre");
+      box.id = "acrPushDebugBox";
+      box.style.whiteSpace = "pre-wrap";
+      box.style.fontSize = "12px";
+      box.style.color = "#444";
+      box.style.margin = "16px";
+      box.style.padding = "12px";
+      box.style.border = "1px solid #ddd";
+      box.style.borderRadius = "12px";
+      box.style.background = "#fafafa";
+      box.textContent = localStorage.getItem("acr.push.debugLog") || "(pas de log push)";
+      document.body.appendChild(box);
+    } catch(e) {}
+  })();
+</script>
 </body>
 </html>
