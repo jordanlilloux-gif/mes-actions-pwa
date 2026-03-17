@@ -22,70 +22,166 @@
     catch (e) {}
   }
 
-  // Throttle : une fois toutes les 6h max
-  var now = Date.now();
-  var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
-  if (last && (now - last) < 6 * 60 * 60 * 1000) return;
+  function getExec_() {
+    var exec = (get("acr.exec") || "").trim();
+    if (exec) return exec;
 
-  var me = (get("acr.email") || "").trim().toLowerCase();
-  var sig = (get("acr.sig") || "").trim();
-
-  // URL /exec (idéalement injectée par la WebApp)
-  var exec = (get("acr.exec") || "").trim();
-
-  // Fallback: dérive de acr.entry si disponible
-  if (!exec) {
     var entry = (get("acr.entry") || "").trim();
     if (entry) {
       try {
         var u = new URL(entry);
-        exec = u.origin + u.pathname; // .../exec
+        return u.origin + u.pathname;
       } catch (e) {}
+    }
+    return "";
+  }
+
+  function getOrCreateDeviceId_() {
+    var deviceId = (get("acr.pushDeviceId") || "").trim();
+    if (!deviceId) {
+      deviceId = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : ("dev-" + Date.now() + "-" + Math.random().toString(16).slice(2));
+      set("acr.pushDeviceId", deviceId);
+    }
+    return deviceId;
+  }
+
+  function getPlatform_() {
+    var ua = navigator.userAgent || "";
+    return /iphone|ipad|ipod/i.test(ua) ? "ios"
+      : /android/i.test(ua) ? "android"
+      : "desktop";
+  }
+
+  function urlBase64ToUint8Array_(base64String) {
+    var padding = "=".repeat((4 - base64String.length % 4) % 4);
+    var base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    var rawData = atob(base64);
+    var outputArray = new Uint8Array(rawData.length);
+    for (var i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  function sendRegister_(payload) {
+    var me = (get("acr.email") || "").trim().toLowerCase();
+    var sig = (get("acr.sig") || "").trim();
+    var exec = getExec_();
+    if (!me || !sig || !exec) return Promise.resolve(false);
+
+    var qs = [
+      "mode=registerdevice",
+      "me=" + encodeURIComponent(me),
+      "sig=" + encodeURIComponent(sig),
+      "deviceId=" + encodeURIComponent(payload.deviceId || ""),
+      "token=" + encodeURIComponent(payload.token || "pending"),
+      "platform=" + encodeURIComponent(payload.platform || ""),
+      "appVersion=" + encodeURIComponent(payload.appVersion || ""),
+      "ua=" + encodeURIComponent(String(payload.ua || "").slice(0, 180)),
+      "endpoint=" + encodeURIComponent(payload.endpoint || ""),
+      "p256dh=" + encodeURIComponent(payload.p256dh || ""),
+      "auth=" + encodeURIComponent(payload.auth || ""),
+      "ts=" + Date.now()
+    ];
+
+    var url = exec + "?" + qs.join("&");
+
+    return fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "omit"
+    })
+    .then(function(res){ return res.json(); })
+    .then(function(data){
+      try {
+        set("acr.push.lastRegisterAt", String(Date.now()));
+        localStorage.setItem("acr.push.lastRegisterResult", JSON.stringify(data || {}));
+      } catch (e) {}
+      return !!(data && data.ok);
+    })
+    .catch(function(){
+      return false;
+    });
+  }
+
+  async function registerPushIfPossible_() {
+    var me = (get("acr.email") || "").trim().toLowerCase();
+    var sig = (get("acr.sig") || "").trim();
+    var exec = getExec_();
+    if (!me || !sig || !exec) return;
+
+    var now = Date.now();
+    var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
+    if (last && (now - last) < 6 * 60 * 60 * 1000) return;
+
+    var deviceId = getOrCreateDeviceId_();
+    var ua = navigator.userAgent || "";
+    var platform = getPlatform_();
+    var appVersion = "1.0.4";
+
+    // Fallback sûr : on garde le comportement actuel tant que le vrai push n'est pas prêt
+    var basePayload = {
+      deviceId: deviceId,
+      token: "pending",
+      platform: platform,
+      appVersion: appVersion,
+      ua: ua,
+      endpoint: "",
+      p256dh: "",
+      auth: ""
+    };
+
+    try {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+        await sendRegister_(basePayload);
+        return;
+      }
+
+      // On ne force pas encore la popup ici.
+      // Si la permission n'est pas déjà accordée, on reste en pending.
+      if (Notification.permission !== "granted") {
+        await sendRegister_(basePayload);
+        return;
+      }
+
+      var vapidPublicKey = (get("acr.push.vapidPublicKey") || "").trim();
+      if (!vapidPublicKey) {
+        await sendRegister_(basePayload);
+        return;
+      }
+
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array_(vapidPublicKey)
+        });
+      }
+
+      var json = (sub && sub.toJSON) ? sub.toJSON() : {};
+      var keys = (json && json.keys) ? json.keys : {};
+
+      await sendRegister_({
+        deviceId: deviceId,
+        token: "webpush",
+        platform: platform,
+        appVersion: appVersion,
+        ua: ua,
+        endpoint: json.endpoint || "",
+        p256dh: keys.p256dh || "",
+        auth: keys.auth || ""
+      });
+    } catch (e) {
+      try { console.warn("[ACR] register push failed", e); } catch(_){}
+      await sendRegister_(basePayload);
     }
   }
 
-  // Sans identité signée, on ne fait rien
-  if (!me || !sig || !exec) return;
-
-  // deviceId stable
-  var deviceId = (get("acr.pushDeviceId") || "").trim();
-  if (!deviceId) {
-    deviceId = (window.crypto && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : ("dev-" + Date.now() + "-" + Math.random().toString(16).slice(2));
-    set("acr.pushDeviceId", deviceId);
-  }
-
-  // Platform simple
-  var ua = navigator.userAgent || "";
-  var platform =
-    /iphone|ipad|ipod/i.test(ua) ? "ios" :
-    /android/i.test(ua) ? "android" :
-    "desktop";
-
-  // Token placeholder (FCM plus tard)
-  var token = "pending";
-
-  // Version PWA
-  var appVersion = "1.0.4";
-
-  var url =
-    exec
-    + "?mode=registerdevice"
-    + "&me=" + encodeURIComponent(me)
-    + "&sig=" + encodeURIComponent(sig)
-    + "&deviceId=" + encodeURIComponent(deviceId)
-    + "&token=" + encodeURIComponent(token)
-    + "&platform=" + encodeURIComponent(platform)
-    + "&appVersion=" + encodeURIComponent(appVersion)
-    + "&ua=" + encodeURIComponent(ua.slice(0, 180))
-    + "&ts=" + now;
-
-  try {
-    (new Image()).src = url;
-    set("acr.push.lastRegisterAt", String(now));
-  } catch (e) {}
-})();
+  registerPushIfPossible_();
++})();
 
 
 // -------------------------------------------------------------
