@@ -167,7 +167,10 @@
 
   const NOTIFSTATE_URL =
     "https://script.google.com/macros/s/AKfycbwLIoqEXc_156juJNszZPRiAH2adBh4NmMxLN1JwdOkeAxaTuH_nklP9DbQODK4GRxq/exec"
-    + "?mode=notifstate";  
+    + "?mode=notifstate";
+
+  const VAPID_PUBLIC_KEY =
+    "BM1HCy-lUbZKmZx4SHnVAA4ApzozqMkURUgrkS3sqwX5CPn4F_6kMBklSKMDf4V7O8KSJrBmbcLLQkHMC_lSjUk";  
   function getStoredSt_(){
     try {
       const qst = qs("st");
@@ -365,9 +368,24 @@ async function checkNotifState_(){
       const u = new URL(ENTRY_URL);
       localStorage.setItem("acr.exec", u.origin + u.pathname);
       localStorage.setItem("acr.pwaSchema", "v1");
+      localStorage.setItem("acr.push.vapidPublicKey", VAPID_PUBLIC_KEY);
     } catch(e) {}
   })();
 
+  async function requestPushPermissionIfNeeded_(){
+    try{
+      if (!("Notification" in window)) return false;
+
+      if (Notification.permission === "granted") return true;
+      if (Notification.permission === "denied") return false;
+
+      const perm = await Notification.requestPermission();
+      return perm === "granted";
+    }catch(e){
+      return false;
+    }
+  }
+  
   function qs(name){
     try { return new URL(location.href).searchParams.get(name); }
     catch(e){ return null; }
@@ -443,12 +461,23 @@ async function checkNotifState_(){
     // Button: never leave GitHub Pages if offline
     const goBtn = document.getElementById("goBtn");
     if (goBtn) {
-      goBtn.addEventListener("click", (e) => {
+      goBtn.addEventListener("click", async (e) => {
         e.preventDefault();
         if (!navigator.onLine) {
           go("./offline.html");
           return;
         }
+
+        try{
+          const granted = await requestPushPermissionIfNeeded_();
+          if (granted) {
+            localStorage.removeItem("acr.push.lastRegisterAt");
+            if (window.acrRegisterPushNow) {
+              await window.acrRegisterPushNow(true);
+            }
+          }
+        }catch(_){}
+        
         go(dest);
       });
       goBtn.href = "#";
