@@ -80,7 +80,7 @@
       "ua=" + encodeURIComponent(String(payload.ua || "").slice(0, 180)),
       "endpoint=" + encodeURIComponent(payload.endpoint || ""),
       "p256dh=" + encodeURIComponent(payload.p256dh || ""),
-      "auth=" + encodeURIComponent(payload.auth || ""),
+      "pushAuth=" + encodeURIComponent(payload.auth || ""),
       "ts=" + Date.now()
     ];
 
