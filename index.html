@@ -202,6 +202,7 @@
       if (execEl) execEl.textContent = hasExec ? "oui" : "non";
     }catch(_){}
   }
+  let notifToastTimer_ = null;
   let lastToastKey_ = null;
 
   function showNotifToast_(title, sub){
@@ -226,6 +227,7 @@
       }
       notifToastTimer_ = setTimeout(() => {
         box.classList.remove("show");
+        lastToastKey_ = null;
       }, 4200);
     }catch(e){}
   }
