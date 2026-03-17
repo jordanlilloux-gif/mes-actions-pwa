@@ -372,6 +372,21 @@ async function checkNotifState_(){
     } catch(e) {}
   })();
 
+  (function readReturnedSessionFromUrl(){
+    try {
+      const u = new URL(location.href);
+      const st = (u.searchParams.get("st") || "").trim();
+      const exec = (u.searchParams.get("exec") || "").trim();
+      if (st) localStorage.setItem("acr.st", st);
+      if (exec) localStorage.setItem("acr.exec", exec);
+      if (st || exec) {
+        u.searchParams.delete("st");
+        u.searchParams.delete("exec");
+        history.replaceState({}, "", u.toString());
+      }
+    } catch(e) {}
+  })();
+  
   async function requestPushPermissionIfNeeded_(){
     try{
       if (!("Notification" in window)) return false;
