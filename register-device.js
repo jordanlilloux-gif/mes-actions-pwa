@@ -142,6 +142,14 @@
     var exec = getExec_();
     if (!st || !exec) return;
 
+    try {
+      console.log("[ACR] registerPushIfPossible start");
+      console.log("[ACR] has st?", !!st);
+      console.log("[ACR] has exec?", !!exec);
+      console.log("[ACR] Notification.permission =", ("Notification" in window) ? Notification.permission : "unsupported");
+      console.log("[ACR] has serviceWorker?", ("serviceWorker" in navigator));
+      console.log("[ACR] has PushManager?", ("PushManager" in window));
+    } catch (_) {}
     var now = Date.now();
     var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
     if (!force && last && (now - last) < 6 * 60 * 60 * 1000) return;
@@ -178,17 +186,23 @@
 
       var vapidPublicKey = (get("acr.push.vapidPublicKey") || "").trim();
       if (!vapidPublicKey) {
+        try { console.warn("[ACR] vapid key missing"); } catch(_){}
         await sendRegister_(basePayload);
         return;
       }
 
+      try { console.log("[ACR] waiting for serviceWorker.ready"); } catch(_){}    
       var reg = await navigator.serviceWorker.ready;
+      try { console.log("[ACR] serviceWorker.ready OK", !!reg); } catch(_){}
       var sub = await reg.pushManager.getSubscription();
+      try { console.log("[ACR] existing subscription?", !!sub); } catch(_){}
       if (!sub) {
+        try { console.log("[ACR] calling pushManager.subscribe"); } catch(_){}
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array_(vapidPublicKey)
         });
+        try { console.log("[ACR] subscribe returned", !!sub); } catch(_){}
       }
 
       var json = (sub && sub.toJSON) ? sub.toJSON() : {};
@@ -207,8 +221,10 @@
         console.log("[ACR] push endpoint?", !!endpoint);
         console.log("[ACR] push p256dh?", !!p256dh);
         console.log("[ACR] push auth?", !!auth);
+        console.log("[ACR] endpoint sample =", endpoint ? endpoint.slice(0, 60) : "");
       } catch (_) {}
-
+      
+      try { console.log("[ACR] sending registerdevice"); } catch(_){}
       await sendRegister_({
         deviceId: deviceId,
         token: "webpush",
@@ -219,9 +235,12 @@
         p256dh: p256dh || "",
         auth: auth || ""
       });
+      try { console.log("[ACR] sendRegister done"); } catch(_){}
     } catch (e) {
       try {
         console.warn("[ACR] register push failed", e);
+        console.warn("[ACR] error name =", e && e.name ? e.name : "");
+        console.warn("[ACR] error message =", e && e.message ? e.message : String(e));  
         localStorage.setItem("acr.push.lastRegisterError", String(e && e.message ? e.message : e));
       } catch(_){}
       await sendRegister_(basePayload);
