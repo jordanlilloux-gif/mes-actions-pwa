@@ -385,6 +385,17 @@ async function checkNotifState_(){
       return false;
     }
   }
+
+  async function waitForRegisterPushFn_(timeoutMs){
+    const max = Number(timeoutMs || 2000);
+    const step = 50;
+    const start = Date.now();
+    while ((Date.now() - start) < max) {
+      if (typeof window.acrRegisterPushNow === "function") return true;
+      await new Promise(r => setTimeout(r, step));
+    }
+    return false;
+  }
   
   function qs(name){
     try { return new URL(location.href).searchParams.get(name); }
@@ -469,15 +480,31 @@ async function checkNotifState_(){
         }
 
         try{
+          console.log("[PWA] click ouvrir mes actions");
+          console.log("[PWA] permission avant =", ("Notification" in window) ? Notification.permission : "unsupported");
+  
           const granted = await requestPushPermissionIfNeeded_();
+          console.log("[PWA] permission après =", ("Notification" in window) ? Notification.permission : "unsupported");
+          
           if (granted) {
             localStorage.removeItem("acr.push.lastRegisterAt");
+            await waitForRegisterPushFn_(2000);
             if (window.acrRegisterPushNow) {
               await window.acrRegisterPushNow(true);
+              console.log("[PWA] acrRegisterPushNow exécuté");
+            } else {
+              console.warn("[PWA] acrRegisterPushNow indisponible");              
             }
           }
         }catch(_){}
-        
+
+        // En debug, on reste sur github.io pour vérifier la permission
+        // et laisser le temps à l’enregistrement push de partir.
+        if (dbg) {
+          console.log("[PWA] mode debug : pas de redirection automatique");
+          return;
+        }
+
         go(dest);
       });
       goBtn.href = "#";
