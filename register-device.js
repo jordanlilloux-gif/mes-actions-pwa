@@ -65,6 +65,19 @@
     return outputArray;
   }
 
+  function arrayBufferToBase64_(buffer) {
+    try {
+      if (!buffer) return "";
+      var bytes = new Uint8Array(buffer);
+      var binary = "";
+      for (var i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    } catch (e) {
+      return "";
+    }
+  }
   function sendRegister_(payload) {
     var st = (get("acr.st") || "").trim();
     var exec = getExec_();
@@ -179,7 +192,22 @@
       }
 
       var json = (sub && sub.toJSON) ? sub.toJSON() : {};
-      var keys = (json && json.keys) ? json.keys : {};
+      var endpoint = (json && json.endpoint) ? json.endpoint : (sub && sub.endpoint ? sub.endpoint : "");
+      var p256dh = "";
+      var auth = "";
+
+      try {
+        p256dh = arrayBufferToBase64_(sub.getKey("p256dh"));
+      } catch (e) {}
+      try {
+        auth = arrayBufferToBase64_(sub.getKey("auth"));
+      } catch (e) {}
+
+      try {
+        console.log("[ACR] push endpoint?", !!endpoint);
+        console.log("[ACR] push p256dh?", !!p256dh);
+        console.log("[ACR] push auth?", !!auth);
+      } catch (_) {}
 
       await sendRegister_({
         deviceId: deviceId,
@@ -187,12 +215,15 @@
         platform: platform,
         appVersion: appVersion,
         ua: ua,
-        endpoint: json.endpoint || "",
-        p256dh: keys.p256dh || "",
-        auth: keys.auth || ""
+        endpoint: endpoint || "",
+        p256dh: p256dh || "",
+        auth: auth || ""
       });
     } catch (e) {
-      try { console.warn("[ACR] register push failed", e); } catch(_){}
+      try {
+        console.warn("[ACR] register push failed", e);
+        localStorage.setItem("acr.push.lastRegisterError", String(e && e.message ? e.message : e));
+      } catch(_){}
       await sendRegister_(basePayload);
     }
   }
