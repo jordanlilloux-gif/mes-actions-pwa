@@ -273,8 +273,22 @@ async function checkNotifState_(){
     const newMy = (((data || {}).myactions || {}).fingerprint || "");
     const newTeam = (((data || {}).teamactions || {}).fingerprint || "");
 
+    const oldLast = (() => {
+      try { return JSON.parse(localStorage.getItem("acr.notif.last") || "{}"); }
+      catch(e){ return {}; }
+    })();
+
+    const oldMyCount = (((oldLast || {}).myactions || {}).unseenCount || 0);
+    const oldTeamCount = (((oldLast || {}).teamactions || {}).unseenCount || 0);
+
+    const newMyCount = (((data || {}).myactions || {}).unseenCount || 0);
+    const newTeamCount = (((data || {}).teamactions || {}).unseenCount || 0);
+
     const changedMy = !!oldMy && newMy !== oldMy;
     const changedTeam = !!oldTeam && newTeam !== oldTeam;
+
+    const increasedMy = newMyCount > oldMyCount;
+    const increasedTeam = newTeamCount > oldTeamCount;
 
     notifSetFp_("acr.notif.fp.myactions", newMy);
     notifSetFp_("acr.notif.fp.teamactions", newTeam);
@@ -284,19 +298,21 @@ async function checkNotifState_(){
         at: new Date().toISOString(),
         email: data.email || "",
         myactions: {
-          unseenCount: (((data || {}).myactions || {}).unseenCount || 0),
+          unseenCount: newMyCount,
           fingerprint: newMy,
-          changed: changedMy
+          changed: changedMy,
+          increased: increasedMy
         },
         teamactions: {
-          unseenCount: (((data || {}).teamactions || {}).unseenCount || 0),
+          unseenCount: newTeamCount,
           fingerprint: newTeam,
-          changed: changedTeam
+          changed: changedTeam,
+          increased: increasedTeam
         }
       }));
     } catch(e) {}
 
-    if (changedMy) {
+    if (increasedMy) {
       console.log("[notifstate] nouveau commentaire admin");
       showNotifToast_(
         "🔔 Nouveau commentaire admin",
@@ -304,7 +320,7 @@ async function checkNotifState_(){
       );
     }
 
-    if (changedTeam) {
+    if (increasedTeam) {
       console.log("[notifstate] nouveau commentaire TeamActions");
       showNotifToast_(
         "🔔 Nouveau commentaire dans TeamActions",
