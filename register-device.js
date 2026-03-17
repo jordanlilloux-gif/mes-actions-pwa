@@ -151,115 +151,128 @@
     });
   }
 
-  async function registerPushIfPossible_(force) {
-    clearPushDebugLog_();
-    pushDebugLog_("registerPushIfPossible start");    
-    var st = (get("acr.st") || "").trim();
-    var exec = getExec_();
-    if (!st || !exec) return;
+async function registerPushIfPossible_(force) {
+  clearPushDebugLog_();
+  pushDebugLog_("registerPushIfPossible start");
+
+  var st = (get("acr.st") || "").trim();
+  var exec = getExec_();
+
+  pushDebugLog_("has st? " + (!!st));
+  pushDebugLog_("has exec? " + (!!exec));
+  pushDebugLog_("Notification.permission = " + (("Notification" in window) ? Notification.permission : "unsupported"));
+  pushDebugLog_("has serviceWorker? " + (("serviceWorker" in navigator)));
+  pushDebugLog_("has PushManager? " + (("PushManager" in window)));
+
+  if (!st || !exec) {
+    pushDebugLog_("st ou exec manquant");
+    return;
+  }
+
+  var now = Date.now();
+  var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
+  if (!force && last && (now - last) < 6 * 60 * 60 * 1000) {
+    pushDebugLog_("throttle actif");
+    return;
+  }
+
+  var deviceId = getOrCreateDeviceId_();
+  var ua = navigator.userAgent || "";
+  var platform = getPlatform_();
+  var appVersion = "1.0.4";
+
+  var basePayload = {
+    deviceId: deviceId,
+    token: "pending",
+    platform: platform,
+    appVersion: appVersion,
+    ua: ua,
+    endpoint: "",
+    p256dh: "",
+    auth: ""
+  };
+
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
+      pushDebugLog_("support push incomplet");
+      await sendRegister_(basePayload);
+      return;
+    }
+
+    if (Notification.permission !== "granted") {
+      pushDebugLog_("permission non granted");
+      await sendRegister_(basePayload);
+      return;
+    }
+
+    var vapidPublicKey = (get("acr.push.vapidPublicKey") || "").trim();
+    if (!vapidPublicKey) {
+      pushDebugLog_("vapid key missing");
+      await sendRegister_(basePayload);
+      return;
+    }
+
+    pushDebugLog_("waiting for serviceWorker.ready");
+    var reg = await navigator.serviceWorker.ready;
+    pushDebugLog_("serviceWorker.ready OK = " + (!!reg));
+
+    var sub = await reg.pushManager.getSubscription();
+    pushDebugLog_("existing subscription? " + (!!sub));
+
+    if (!sub) {
+      pushDebugLog_("calling pushManager.subscribe");
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array_(vapidPublicKey)
+      });
+      pushDebugLog_("subscribe returned " + (!!sub));
+    }
+
+    var json = (sub && sub.toJSON) ? sub.toJSON() : {};
+    var endpoint = (json && json.endpoint) ? json.endpoint : (sub && sub.endpoint ? sub.endpoint : "");
+    var p256dh = "";
+    var auth = "";
 
     try {
-      pushDebugLog_("has st? " + (!!st));
-      pushDebugLog_("has exec? " + (!!exec));
-      pushDebugLog_("Notification.permission = " + (("Notification" in window) ? Notification.permission : "unsupported"));
-      pushDebugLog_("has serviceWorker? " + (("serviceWorker" in navigator)));
-      pushDebugLog_("has PushManager? " + (("PushManager" in window)));
-    } catch (_) {}
-    var now = Date.now();
-    var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
-    if (!force && last && (now - last) < 6 * 60 * 60 * 1000) return;
+      p256dh = arrayBufferToBase64_(sub.getKey("p256dh"));
+    } catch (e) {
+      pushDebugLog_("getKey p256dh failed");
+    }
 
-    var deviceId = getOrCreateDeviceId_();
-    var ua = navigator.userAgent || "";
-    var platform = getPlatform_();
-    var appVersion = "1.0.4";
+    try {
+      auth = arrayBufferToBase64_(sub.getKey("auth"));
+    } catch (e) {
+      pushDebugLog_("getKey auth failed");
+    }
 
-    // Fallback sûr : on garde le comportement actuel tant que le vrai push n'est pas prêt
-    var basePayload = {
+    pushDebugLog_("push endpoint? " + (!!endpoint));
+    pushDebugLog_("push p256dh? " + (!!p256dh));
+    pushDebugLog_("push auth? " + (!!auth));
+    pushDebugLog_("endpoint sample = " + (endpoint ? endpoint.slice(0, 60) : ""));
+
+    pushDebugLog_("sending registerdevice");
+    await sendRegister_({
       deviceId: deviceId,
-      token: "pending",
+      token: "webpush",
       platform: platform,
       appVersion: appVersion,
       ua: ua,
-      endpoint: "",
-      p256dh: "",
-      auth: ""
-    };
+      endpoint: endpoint || "",
+      p256dh: p256dh || "",
+      auth: auth || ""
+    });
+    pushDebugLog_("sendRegister done");
 
+  } catch (e) {
+    pushDebugLog_("register push failed");
+    pushDebugLog_("error name = " + (e && e.name ? e.name : ""));
+    pushDebugLog_("error message = " + (e && e.message ? e.message : String(e)));
     try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) {
-        await sendRegister_(basePayload);
-        return;
-      }
-
-      // On ne force pas encore la popup ici.
-      // Si la permission n'est pas déjà accordée, on reste en pending.
-      if (Notification.permission !== "granted") {
-        await sendRegister_(basePayload);
-        return;
-      }
-
-      var vapidPublicKey = (get("acr.push.vapidPublicKey") || "").trim();
-      if (!vapidPublicKey) {
-        pushDebugLog_("vapid key missing");
-        await sendRegister_(basePayload);
-        return;
-      }
-
-      pushDebugLog_("waiting for serviceWorker.ready");   
-      var reg = await navigator.serviceWorker.ready;
-      pushDebugLog_("serviceWorker.ready OK = " + (!!reg));
-      var sub = await reg.pushManager.getSubscription();
-      pushDebugLog_("existing subscription? " + (!!sub));
-      if (!sub) {
-        pushDebugLog_("calling pushManager.subscribe");
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array_(vapidPublicKey)
-        });
-        pushDebugLog_("subscribe returned " + (!!sub));
-      }
-
-      var json = (sub && sub.toJSON) ? sub.toJSON() : {};
-      var endpoint = (json && json.endpoint) ? json.endpoint : (sub && sub.endpoint ? sub.endpoint : "");
-      var p256dh = "";
-      var auth = "";
-
-      try {
-        p256dh = arrayBufferToBase64_(sub.getKey("p256dh"));
-      } catch (e) {}
-      try {
-        auth = arrayBufferToBase64_(sub.getKey("auth"));
-      } catch (e) {}
-
-      try {
-      pushDebugLog_("push endpoint? " + (!!endpoint));
-      pushDebugLog_("push p256dh? " + (!!p256dh));
-      pushDebugLog_("push auth? " + (!!auth));
-      pushDebugLog_("endpoint sample = " + (endpoint ? endpoint.slice(0, 60) : ""));
-      
-      pushDebugLog_("sending registerdevice");
-      await sendRegister_({
-        deviceId: deviceId,
-        token: "webpush",
-        platform: platform,
-        appVersion: appVersion,
-        ua: ua,
-        endpoint: endpoint || "",
-        p256dh: p256dh || "",
-        auth: auth || ""
-      });
-      pushDebugLog_("sendRegister done");
-    } catch (e) {
-      try {
-        pushDebugLog_("register push failed");
-        pushDebugLog_("error name = " + (e && e.name ? e.name : ""));
-        pushDebugLog_("error message = " + (e && e.message ? e.message : String(e))); 
-        localStorage.setItem("acr.push.lastRegisterError", String(e && e.message ? e.message : e));
-      } catch(_){}
-      await sendRegister_(basePayload);
-    }
+      localStorage.setItem("acr.push.lastRegisterError", String(e && e.message ? e.message : e));
+    } catch (_) {}
+    await sendRegister_(basePayload);
   }
+}
 
   window.acrRegisterPushNow = function(force){
     return registerPushIfPossible_(!!force);
