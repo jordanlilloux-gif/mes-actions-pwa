@@ -66,15 +66,13 @@
   }
 
   function sendRegister_(payload) {
-    var me = (get("acr.email") || "").trim().toLowerCase();
-    var sig = (get("acr.sig") || "").trim();
+    var st = (get("acr.st") || "").trim();
     var exec = getExec_();
-    if (!me || !sig || !exec) return Promise.resolve(false);
+    if (!st || !exec) return Promise.resolve(false);
 
     var qs = [
       "mode=registerdevice",
-      "me=" + encodeURIComponent(me),
-      "sig=" + encodeURIComponent(sig),
+      "st=" + encodeURIComponent(st),
       "deviceId=" + encodeURIComponent(payload.deviceId || ""),
       "token=" + encodeURIComponent(payload.token || "pending"),
       "platform=" + encodeURIComponent(payload.platform || ""),
@@ -98,19 +96,20 @@
       try {
         set("acr.push.lastRegisterAt", String(Date.now()));
         localStorage.setItem("acr.push.lastRegisterResult", JSON.stringify(data || {}));
+        console.log("[ACR] registerdevice result =", data);
       } catch (e) {}
       return !!(data && data.ok);
     })
-    .catch(function(){
+    .catch(function(err){
+      try { console.warn("[ACR] registerdevice fetch failed", err); } catch(_){}
       return false;
     });
   }
 
   async function registerPushIfPossible_(force) {
-    var me = (get("acr.email") || "").trim().toLowerCase();
-    var sig = (get("acr.sig") || "").trim();
+    var st = (get("acr.st") || "").trim();
     var exec = getExec_();
-    if (!me || !sig || !exec) return;
+    if (!st || !exec) return;
 
     var now = Date.now();
     var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
