@@ -92,64 +92,38 @@
       return "";
     }
   }
-  function sendRegister_(payload) {
-    var st = (get("acr.st") || "").trim();
-    var exec = getExec_();
-    if (!st || !exec) return Promise.resolve(false);
+function sendRegister_(payload) {
+  const WORKER_URL = "http://localhost:8787/api/register-device"; 
+  // ⚠️ on changera en prod plus tard
 
-    var qs = [
-      "mode=registerdevice",
-      "st=" + encodeURIComponent(st),
-      "deviceId=" + encodeURIComponent(payload.deviceId || ""),
-      "token=" + encodeURIComponent(payload.token || "pending"),
-      "platform=" + encodeURIComponent(payload.platform || ""),
-      "appVersion=" + encodeURIComponent(payload.appVersion || ""),
-      "ua=" + encodeURIComponent(String(payload.ua || "").slice(0, 180)),
-      "endpoint=" + encodeURIComponent(payload.endpoint || ""),
-      "p256dh=" + encodeURIComponent(payload.p256dh || ""),
-      "pushAuth=" + encodeURIComponent(payload.auth || ""),
-      "ts=" + Date.now()
-    ];
-
-    var url = exec + "?" + qs.join("&");
-
-    return new Promise(function(resolve){
-      try {
-        var img = new Image();
-        var done = false;
-
-        function finish(ok, info){
-          if (done) return;
-          done = true;
-          try {
-            set("acr.push.lastRegisterAt", String(Date.now()));
-            localStorage.setItem("acr.push.lastRegisterResult", JSON.stringify({
-              ok: !!ok,
-              via: "img",
-              at: new Date().toISOString(),
-              info: info || "",
-              url: url
-            }));
-          } catch (e) {}
-          resolve(!!ok);
+  return fetch(WORKER_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      userId: (get("acr.email") || "unknown"),
+      deviceId: payload.deviceId,
+      platform: payload.platform,
+      subscription: {
+        endpoint: payload.endpoint,
+        keys: {
+          p256dh: payload.p256dh,
+          auth: payload.auth
         }
-
-        img.onload = function(){ finish(true, "load"); };
-        img.onerror = function(){ finish(true, "error-event"); };
-
-        setTimeout(function(){
-          finish(true, "timeout");
-        }, 2500);
-
-        img.src = url;
-      } catch (err) {
-        try {
-          console.warn("[ACR] registerdevice beacon failed", err);
-        } catch(_) {}
-        resolve(false);
       }
-    });
-  }
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    console.log("[PUSH] register OK", data);
+    return true;
+  })
+  .catch(err => {
+    console.error("[PUSH] register ERROR", err);
+    return false;
+  });
+}
 
 async function registerPushIfPossible_(force) {
   clearPushDebugLog_();
