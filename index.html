@@ -582,5 +582,193 @@ async function checkNotifState_(){
     } catch(e) {}
   })();
 </script>
+<script>
+(function () {
+  function b64FromArrayBuffer(buf) {
+    if (!buf) return "";
+    const bytes = new Uint8Array(buf);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  function logPush(msg) {
+    const box = document.getElementById("pushTestLog");
+    if (!box) return;
+    const line = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    box.textContent += (box.textContent ? "\n" : "") + line;
+  }
+
+  async function sendRegisterDirect(payload) {
+    const st = (localStorage.getItem("acr.st") || "").trim();
+    const exec = (localStorage.getItem("acr.exec") || "").trim();
+    if (!st || !exec) {
+      logPush("st ou exec manquant");
+      return false;
+    }
+
+    const qs = [
+      "mode=registerdevice",
+      "st=" + encodeURIComponent(st),
+      "deviceId=" + encodeURIComponent(payload.deviceId || ""),
+      "token=" + encodeURIComponent(payload.token || "webpush"),
+      "platform=" + encodeURIComponent(payload.platform || ""),
+      "appVersion=" + encodeURIComponent(payload.appVersion || ""),
+      "ua=" + encodeURIComponent((payload.ua || "").slice(0, 180)),
+      "endpoint=" + encodeURIComponent(payload.endpoint || ""),
+      "p256dh=" + encodeURIComponent(payload.p256dh || ""),
+      "pushAuth=" + encodeURIComponent(payload.auth || ""),
+      "force=1",
+      "ts=" + Date.now()
+    ];
+
+    const url = exec + "?" + qs.join("&");
+    logPush("envoi registerdevice…");
+
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        let done = false;
+
+        function finish(ok, why) {
+          if (done) return;
+          done = true;
+          logPush("registerdevice terminé: " + why);
+          resolve(ok);
+        }
+
+        img.onload = () => finish(true, "load");
+        img.onerror = () => finish(true, "error-event");
+        setTimeout(() => finish(true, "timeout"), 2500);
+        img.src = url;
+      } catch (e) {
+        logPush("échec registerdevice: " + (e && e.message ? e.message : String(e)));
+        resolve(false);
+      }
+    });
+  }
+
+  async function runDirectPushTest() {
+    const box = document.getElementById("pushTestLog");
+    if (box) box.textContent = "";
+
+    try {
+      logPush("début test push");
+      const st = !!localStorage.getItem("acr.st");
+      const exec = !!localStorage.getItem("acr.exec");
+      logPush("st présent = " + st);
+      logPush("exec présent = " + exec);
+      logPush("permission = " + (("Notification" in window) ? Notification.permission : "unsupported"));
+      logPush("serviceWorker support = " + ("serviceWorker" in navigator));
+      logPush("PushManager support = " + ("PushManager" in window));
+
+      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+        logPush("support incomplet");
+        return;
+      }
+
+      let perm = Notification.permission;
+      if (perm === "default") {
+        perm = await Notification.requestPermission();
+        logPush("permission demandée => " + perm);
+      }
+      if (perm !== "granted") {
+        logPush("permission non accordée");
+        return;
+      }
+
+      const vapid = (localStorage.getItem("acr.push.vapidPublicKey") || "").trim();
+      logPush("vapid présente = " + !!vapid);
+      if (!vapid) return;
+
+      const reg = await navigator.serviceWorker.ready;
+      logPush("serviceWorker.ready OK");
+
+      let sub = await reg.pushManager.getSubscription();
+      logPush("subscription existante = " + !!sub);
+
+      if (!sub) {
+        logPush("appel subscribe()");
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapid)
+        });
+        logPush("subscribe() retourné = " + !!sub);
+      }
+
+      const endpoint = sub && sub.endpoint ? sub.endpoint : "";
+      const p256dh = b64FromArrayBuffer(sub.getKey("p256dh"));
+      const auth = b64FromArrayBuffer(sub.getKey("auth"));
+
+      logPush("endpoint = " + !!endpoint);
+      logPush("p256dh = " + !!p256dh);
+      logPush("auth = " + !!auth);
+
+      const ua = navigator.userAgent || "";
+      const deviceId = (localStorage.getItem("acr.pushDeviceId") || "").trim() ||
+        ((crypto && crypto.randomUUID) ? crypto.randomUUID() : ("dev-" + Date.now()));
+      localStorage.setItem("acr.pushDeviceId", deviceId);
+
+      const platform =
+        /iphone|ipad|ipod/i.test(ua) ? "ios" :
+        /android/i.test(ua) ? "android" : "desktop";
+
+      await sendRegisterDirect({
+        deviceId,
+        token: "webpush",
+        platform,
+        appVersion: "diag-1",
+        ua,
+        endpoint,
+        p256dh,
+        auth
+      });
+
+      logPush("fin test push");
+    } catch (e) {
+      logPush("ERREUR: " + (e && e.name ? e.name + " - " : "") + (e && e.message ? e.message : String(e)));
+    }
+  }
+
+  const wrap = document.createElement("div");
+  wrap.style.margin = "16px";
+
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.textContent = "Tester l’enregistrement push";
+  btn.style.padding = "12px 16px";
+  btn.style.borderRadius = "12px";
+  btn.style.border = "1px solid #d1d5db";
+  btn.style.background = "#fff";
+  btn.style.fontWeight = "700";
+  btn.style.cursor = "pointer";
+  btn.onclick = runDirectPushTest;
+
+  const pre = document.createElement("pre");
+  pre.id = "pushTestLog";
+  pre.style.whiteSpace = "pre-wrap";
+  pre.style.fontSize = "12px";
+  pre.style.color = "#444";
+  pre.style.marginTop = "12px";
+  pre.style.padding = "12px";
+  pre.style.border = "1px solid #ddd";
+  pre.style.borderRadius = "12px";
+  pre.style.background = "#fafafa";
+  pre.textContent = "(aucun test lancé)";
+
+  wrap.appendChild(btn);
+  wrap.appendChild(pre);
+  document.body.appendChild(wrap);
+})();
+</script>
 </body>
 </html>
