@@ -488,6 +488,7 @@ async function checkNotifState_(){
             if (window.acrRegisterPushNow) {
               await window.acrRegisterPushNow(true);
               console.log("[PWA] acrRegisterPushNow exécuté");
+              if (window.refreshPushDebugBox_) window.refreshPushDebugBox_();
             } else {
               console.warn("[PWA] acrRegisterPushNow indisponible");              
             }
@@ -559,8 +560,25 @@ async function checkNotifState_(){
       box.style.border = "1px solid #ddd";
       box.style.borderRadius = "12px";
       box.style.background = "#fafafa";
-      box.textContent = localStorage.getItem("acr.push.debugLog") || "(pas de log push)";
       document.body.appendChild(box);
+
+      function refreshPushDebugBox_(){
+        try {
+          box.textContent = localStorage.getItem("acr.push.debugLog") || "(pas de log push)";
+        } catch(e) {
+          box.textContent = "(erreur lecture log push)";
+        }
+      }
+
+      refreshPushDebugBox_();
+      window.refreshPushDebugBox_ = refreshPushDebugBox_;
+      window.addEventListener("focus", refreshPushDebugBox_);
+      document.addEventListener("visibilitychange", function(){
+        if (document.visibilityState === "visible") {
+          refreshPushDebugBox_();
+        }
+      });
+      setInterval(refreshPushDebugBox_, 1000);      
     } catch(e) {}
   })();
 </script>
