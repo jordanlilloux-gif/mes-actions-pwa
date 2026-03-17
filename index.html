@@ -431,7 +431,10 @@ async function checkNotifState_(){
   (function init(){
     const dbg = qs("pwa_dbg") === "1";
     const standalone = isStandaloneMode();
-    const dest = ENTRY_URL + "&src=pwa";
+    const pwaReturn = location.origin + location.pathname + (qs("pwa_dbg") === "1" ? "?pwa_dbg=1" : "");
+    const dest = ENTRY_URL
+      + "&src=pwa"
+      + "&return=" + encodeURIComponent(pwaReturn);
 
     const browserArea = document.getElementById("browserArea");
     const standaloneArea = document.getElementById("standaloneArea");
