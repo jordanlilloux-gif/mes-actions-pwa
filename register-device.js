@@ -86,23 +86,41 @@
 
     var url = exec + "?" + qs.join("&");
 
-    return fetch(url, {
-      method: "GET",
-      cache: "no-store",
-      credentials: "omit"
-    })
-    .then(function(res){ return res.json(); })
-    .then(function(data){
+    return new Promise(function(resolve){
       try {
-        set("acr.push.lastRegisterAt", String(Date.now()));
-        localStorage.setItem("acr.push.lastRegisterResult", JSON.stringify(data || {}));
-        console.log("[ACR] registerdevice result =", data);
-      } catch (e) {}
-      return !!(data && data.ok);
-    })
-    .catch(function(err){
-      try { console.warn("[ACR] registerdevice fetch failed", err); } catch(_){}
-      return false;
+        var img = new Image();
+        var done = false;
+
+        function finish(ok, info){
+          if (done) return;
+          done = true;
+          try {
+            set("acr.push.lastRegisterAt", String(Date.now()));
+            localStorage.setItem("acr.push.lastRegisterResult", JSON.stringify({
+              ok: !!ok,
+              via: "img",
+              at: new Date().toISOString(),
+              info: info || "",
+              url: url
+            }));
+          } catch (e) {}
+          resolve(!!ok);
+        }
+
+        img.onload = function(){ finish(true, "load"); };
+        img.onerror = function(){ finish(true, "error-event"); };
+
+        setTimeout(function(){
+          finish(true, "timeout");
+        }, 2500);
+
+        img.src = url;
+      } catch (err) {
+        try {
+          console.warn("[ACR] registerdevice beacon failed", err);
+        } catch(_) {}
+        resolve(false);
+      }
     });
   }
 
