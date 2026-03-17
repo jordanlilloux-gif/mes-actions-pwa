@@ -106,7 +106,7 @@
     });
   }
 
-  async function registerPushIfPossible_() {
+  async function registerPushIfPossible_(force) {
     var me = (get("acr.email") || "").trim().toLowerCase();
     var sig = (get("acr.sig") || "").trim();
     var exec = getExec_();
@@ -114,7 +114,7 @@
 
     var now = Date.now();
     var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
-    if (last && (now - last) < 6 * 60 * 60 * 1000) return;
+    if (!force && last && (now - last) < 6 * 60 * 60 * 1000) return;
 
     var deviceId = getOrCreateDeviceId_();
     var ua = navigator.userAgent || "";
@@ -180,7 +180,11 @@
     }
   }
 
-  registerPushIfPossible_();
+  window.acrRegisterPushNow = function(force){
+    return registerPushIfPossible_(!!force);
+  };
+
+  registerPushIfPossible_(false);
 })();
 
 
