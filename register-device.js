@@ -17,6 +17,20 @@
     catch (e) { return ""; }
   }
 
+  function pushDebugLog_(msg) {
+    try {
+      var prev = localStorage.getItem("acr.push.debugLog") || "";
+      var line = "[" + new Date().toISOString() + "] " + String(msg || "");
+      var next = prev ? (prev + "\n" + line) : line;
+      localStorage.setItem("acr.push.debugLog", next);
+      console.log("[ACRDBG]", msg);
+    } catch (e) {}
+  }
+
+  function clearPushDebugLog_() {
+    try { localStorage.removeItem("acr.push.debugLog"); } catch (e) {}
+  }
+  
   function set(k, v) {
     try { localStorage.setItem(k, v); }
     catch (e) {}
@@ -138,17 +152,18 @@
   }
 
   async function registerPushIfPossible_(force) {
+    clearPushDebugLog_();
+    pushDebugLog_("registerPushIfPossible start");    
     var st = (get("acr.st") || "").trim();
     var exec = getExec_();
     if (!st || !exec) return;
 
     try {
-      console.log("[ACR] registerPushIfPossible start");
-      console.log("[ACR] has st?", !!st);
-      console.log("[ACR] has exec?", !!exec);
-      console.log("[ACR] Notification.permission =", ("Notification" in window) ? Notification.permission : "unsupported");
-      console.log("[ACR] has serviceWorker?", ("serviceWorker" in navigator));
-      console.log("[ACR] has PushManager?", ("PushManager" in window));
+      pushDebugLog_("has st? " + (!!st));
+      pushDebugLog_("has exec? " + (!!exec));
+      pushDebugLog_("Notification.permission = " + (("Notification" in window) ? Notification.permission : "unsupported"));
+      pushDebugLog_("has serviceWorker? " + (("serviceWorker" in navigator)));
+      pushDebugLog_("has PushManager? " + (("PushManager" in window)));
     } catch (_) {}
     var now = Date.now();
     var last = parseInt(get("acr.push.lastRegisterAt") || "0", 10);
@@ -186,23 +201,23 @@
 
       var vapidPublicKey = (get("acr.push.vapidPublicKey") || "").trim();
       if (!vapidPublicKey) {
-        try { console.warn("[ACR] vapid key missing"); } catch(_){}
+        pushDebugLog_("vapid key missing");
         await sendRegister_(basePayload);
         return;
       }
 
-      try { console.log("[ACR] waiting for serviceWorker.ready"); } catch(_){}    
+      pushDebugLog_("waiting for serviceWorker.ready");   
       var reg = await navigator.serviceWorker.ready;
-      try { console.log("[ACR] serviceWorker.ready OK", !!reg); } catch(_){}
+      pushDebugLog_("serviceWorker.ready OK = " + (!!reg));
       var sub = await reg.pushManager.getSubscription();
-      try { console.log("[ACR] existing subscription?", !!sub); } catch(_){}
+      pushDebugLog_("existing subscription? " + (!!sub));
       if (!sub) {
-        try { console.log("[ACR] calling pushManager.subscribe"); } catch(_){}
+        pushDebugLog_("calling pushManager.subscribe");
         sub = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array_(vapidPublicKey)
         });
-        try { console.log("[ACR] subscribe returned", !!sub); } catch(_){}
+        pushDebugLog_("subscribe returned " + (!!sub));
       }
 
       var json = (sub && sub.toJSON) ? sub.toJSON() : {};
@@ -218,13 +233,12 @@
       } catch (e) {}
 
       try {
-        console.log("[ACR] push endpoint?", !!endpoint);
-        console.log("[ACR] push p256dh?", !!p256dh);
-        console.log("[ACR] push auth?", !!auth);
-        console.log("[ACR] endpoint sample =", endpoint ? endpoint.slice(0, 60) : "");
-      } catch (_) {}
+      pushDebugLog_("push endpoint? " + (!!endpoint));
+      pushDebugLog_("push p256dh? " + (!!p256dh));
+      pushDebugLog_("push auth? " + (!!auth));
+      pushDebugLog_("endpoint sample = " + (endpoint ? endpoint.slice(0, 60) : ""));
       
-      try { console.log("[ACR] sending registerdevice"); } catch(_){}
+      pushDebugLog_("sending registerdevice");
       await sendRegister_({
         deviceId: deviceId,
         token: "webpush",
@@ -235,12 +249,12 @@
         p256dh: p256dh || "",
         auth: auth || ""
       });
-      try { console.log("[ACR] sendRegister done"); } catch(_){}
+      pushDebugLog_("sendRegister done");
     } catch (e) {
       try {
-        console.warn("[ACR] register push failed", e);
-        console.warn("[ACR] error name =", e && e.name ? e.name : "");
-        console.warn("[ACR] error message =", e && e.message ? e.message : String(e));  
+        pushDebugLog_("register push failed");
+        pushDebugLog_("error name = " + (e && e.name ? e.name : ""));
+        pushDebugLog_("error message = " + (e && e.message ? e.message : String(e))); 
         localStorage.setItem("acr.push.lastRegisterError", String(e && e.message ? e.message : e));
       } catch(_){}
       await sendRegister_(basePayload);
