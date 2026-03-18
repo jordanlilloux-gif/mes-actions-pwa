@@ -626,54 +626,39 @@ async function checkNotifState_(){
     box.textContent += (box.textContent ? "\n" : "") + line;
   }
 
-  async function sendRegisterDirect(payload) {
-    const st = (localStorage.getItem("acr.st") || "").trim();
-    const exec = (localStorage.getItem("acr.exec") || "").trim();
-    if (!st || !exec) {
-      logPush("st ou exec manquant");
-      return false;
-    }
+async function sendRegisterDirect(payload) {
+  const workerUrl = "http://localhost:8787/api/register-device";
 
-    const qs = [
-      "mode=registerdevice",
-      "st=" + encodeURIComponent(st),
-      "deviceId=" + encodeURIComponent(payload.deviceId || ""),
-      "token=" + encodeURIComponent(payload.token || "webpush"),
-      "platform=" + encodeURIComponent(payload.platform || ""),
-      "appVersion=" + encodeURIComponent(payload.appVersion || ""),
-      "ua=" + encodeURIComponent((payload.ua || "").slice(0, 180)),
-      "endpoint=" + encodeURIComponent(payload.endpoint || ""),
-      "p256dh=" + encodeURIComponent(payload.p256dh || ""),
-      "pushAuth=" + encodeURIComponent(payload.auth || ""),
-      "force=1",
-      "ts=" + Date.now()
-    ];
+  logPush("envoi vers Worker…");
 
-    const url = exec + "?" + qs.join("&");
-    logPush("envoi registerdevice…");
-
-    return new Promise((resolve) => {
-      try {
-        const img = new Image();
-        let done = false;
-
-        function finish(ok, why) {
-          if (done) return;
-          done = true;
-          logPush("registerdevice terminé: " + why);
-          resolve(ok);
+  try {
+    const res = await fetch(workerUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        userId: localStorage.getItem("acr.email") || "iphone@test",
+        deviceId: payload.deviceId || "",
+        platform: payload.platform || "",
+        subscription: {
+          endpoint: payload.endpoint || "",
+          keys: {
+            p256dh: payload.p256dh || "",
+            auth: payload.auth || ""
+          }
         }
-
-        img.onload = () => finish(true, "load");
-        img.onerror = () => finish(true, "error-event");
-        setTimeout(() => finish(true, "timeout"), 2500);
-        img.src = url;
-      } catch (e) {
-        logPush("échec registerdevice: " + (e && e.message ? e.message : String(e)));
-        resolve(false);
-      }
+      })
     });
+
+    const data = await res.json();
+    logPush("Worker OK = " + JSON.stringify(data));
+    return true;
+  } catch (e) {
+    logPush("ERREUR Worker: " + (e && e.message ? e.message : String(e)));
+    return false;
   }
+}
 
   async function runDirectPushTest() {
     const box = document.getElementById("pushTestLog");
